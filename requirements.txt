@@ -1,0 +1,7 @@
+click
+tqdm
+pybraries
+requirements-parser
+pypistats
+addict
+pypandoc
