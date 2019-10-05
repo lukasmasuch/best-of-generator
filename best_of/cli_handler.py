@@ -15,7 +15,7 @@ def cli():
 
 @click.command("generate")
 @click.option("--libraries-key", "-l", required=True, type=click.STRING, help="Libraries.io API Key: https://libraries.io/api")
-@click.argument('path', type=click.Path(exists=True), help="Projects yaml path")
+@click.argument('path', type=click.Path(exists=True))
 def generate(path, libraries_key):
     """ Generates a best-of markdown README from a projects.yaml. """
     from best_of import generator
