@@ -347,7 +347,7 @@ def generate_category_md(category: Dict, configuration: Dict, title_md_prefix="#
     category_md += title_md_prefix + " " + category.title + "\n\n"
     # <span align="right" style="float:right;"><a href="#"><sup>▴ Back to top</sup></a></span>
     # **[`^        back to top        ^`](#)**\n\n
-    category_md += '<a href="#"><img align="right" width="15" height="15" src="https://www.yalwa.info/images//btt.png" alt="Back to top"></a>\n\n'
+    category_md += '<a href="#"><img align="right" width="15" height="15" src="https://i.ibb.co/2PS8bhR/up-arrow.png" alt="Back to top"></a>\n\n'
 
     if category.subtitle:
         category_md += "_" + category.subtitle + "_\n\n"
