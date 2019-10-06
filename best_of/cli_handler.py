@@ -10,7 +10,10 @@ log = logging.getLogger(__name__)
 @click.version_option()
 def cli():
     # log to sys out
-    logging.basicConfig(stream=sys.stdout, format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+    logging.basicConfig(
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        level=logging.INFO,
+        stream=sys.stdout)
 
 
 @click.command("generate")
@@ -21,7 +24,9 @@ def generate(path, libraries_key):
     from best_of import generator
     generator.generate_markdown(path, libraries_key)
 
+
 cli.add_command(generate)
+
 
 if __name__ == '__main__':
     cli()

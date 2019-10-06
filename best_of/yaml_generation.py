@@ -33,10 +33,10 @@ def requirements_to_yaml(requirements_path: str, yaml_output_path: str):
         output_yaml.append(project_output)
 
     # define a custom representer for strings
-    def quoted_presenter(dumper, data):
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='"')
+    #def quoted_presenter(dumper, data):
+    #    return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='"')
 
-    yaml.add_representer(str, quoted_presenter)
+    #yaml.add_representer(str, quoted_presenter)
 
     with open(yaml_output_path, 'w') as f:
         yaml.dump(output_yaml, f, default_flow_style=False, sort_keys=False)

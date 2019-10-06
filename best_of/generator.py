@@ -28,7 +28,7 @@ def generate_markdown(projects_yaml_path: str, libraries_api_key: str):
         with open(projects_yaml_path, 'r') as stream:
             parsed_yaml = yaml.safe_load(stream)
 
-        projects = parsed_yaml["projects"][:50]
+        projects = parsed_yaml["projects"]
         config = Dict(parsed_yaml["configuration"])
         categories = projects_collection.prepare_categories(
             parsed_yaml["categories"])

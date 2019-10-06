@@ -11,8 +11,8 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'best_of'
-MAIN_PACKAGE = NAME  # Change if main package != NAME
+NAME = 'best-of'
+MAIN_PACKAGE = "best_of"  # Change if main package != NAME
 DESCRIPTION = 'Generates a ranked list of awesome libraries and tools.'
 URL = 'https://github.com/LukasMasuch/best-of-generator'
 EMAIL = 'lukas.masuch@gmail.com'
@@ -108,7 +108,7 @@ setup(
     author_email=EMAIL,
     python_requires=REQUIRES_PYTHON,
     url=URL,
-    license='Apache License 2.0',
+    license='MIT License',
     packages=find_packages(exclude=('tests',)),
     # If your package is a single module, use this instead of 'packages':
     # py_modules=['mypackage'],
@@ -122,7 +122,7 @@ setup(
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Operating System :: OS Independent',
         # Not python 2 compatible right now

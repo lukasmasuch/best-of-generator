@@ -28,7 +28,7 @@ def remove_special_chars(text: str) -> str:
     return text.encode('ascii', 'ignore').decode('ascii')
 
 
-def process_description(description: str, max_lenght=100) -> str:
+def process_description(description: str, max_lenght=90) -> str:
     if not description:
         return None
 

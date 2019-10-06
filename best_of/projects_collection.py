@@ -48,7 +48,7 @@ def update_package_via_libio(project_info: Dict, package_info: Dict):
 
     if not project_info.license and package_info.normalized_licenses:
         if len(package_info.normalized_licenses) > 1:
-            log.info("Package " + package_info + "has more than one license.")
+            log.info("Package " + package_info.name + "has more than one license.")
         # Always take the first license
         project_info.license = package_info.normalized_licenses[0]
         if project_info.license.lower() == "other":
@@ -185,7 +185,7 @@ def update_via_pypi(project_info: Dict):
         project_info.pypi_monthly_downloads = json.loads(
             pypistats.recent(project_info.pypi_id, "month", format="json")
         )["data"]["last_month"]
-    except:
+    except Exception as ex:
         pass
 
 
@@ -316,7 +316,7 @@ def calc_sourcerank_placing(projects: list):
                 np.sort(np.array(sourcerank_placing[category]))[::-1], 90)
             placing_2 = np.percentile(
                 np.sort(np.array(sourcerank_placing[category]))[::-1], 60)
-
+            
             if project["sourcerank"] >= placing_1:
                 project["sourcerank_placing"] = 1
             elif project["sourcerank"] >= placing_2:
@@ -463,9 +463,15 @@ def apply_filters(project_info: Dict, configuration: Dict):
 
 def collect_projects_info(projects: list, categories: OrderedDict, configuration: Dict):
     projects_processed = []
-
+    unique_projects = set()
     for project in tqdm(projects):
         project_info = Dict(project)
+        
+        if project_info.name.lower() in unique_projects:
+            log.info("Project " + project_info.name + " is duplicated.")
+            continue
+        unique_projects.add(project_info.name.lower())
+
         update_via_github(project_info)
         update_via_pypi(project_info)
         update_via_conda(project_info)
