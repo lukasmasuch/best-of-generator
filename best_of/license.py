@@ -12,6 +12,7 @@ licenses = [
     {
         "name": "MIT",
         "spdx_id": "MIT",
+        "keywords": ["mit-license"],
         "url": "https://tldrlegal.com/license/mit-license",
         "warning": False
     },
