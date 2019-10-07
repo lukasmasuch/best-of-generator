@@ -6,7 +6,6 @@ from datetime import datetime
 def simplify_str(text: str) -> str:
     return re.compile(r"[^a-zA-Z0-9]").sub("", text.strip()).lower()
 
-
 def diff_month(date1: datetime, date2: datetime) -> int:
     return (date1.year - date2.year) * 12 + date1.month - date2.month
 
@@ -28,11 +27,12 @@ def remove_special_chars(text: str) -> str:
     return text.encode('ascii', 'ignore').decode('ascii')
 
 
-def process_description(description: str, max_lenght=90) -> str:
-    if not description:
+def process_description(text: str, max_lenght=80) -> str:
+    if not text:
         return None
 
-    text = remove_special_chars(description).strip()
+    text = remove_special_chars(text).strip()
+    text = text.replace("\"", "")
     if not text:
         return text
 
