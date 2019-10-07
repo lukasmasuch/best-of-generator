@@ -44,7 +44,8 @@ def update_package_via_libio(project_info: Dict, package_info: Dict):
 
     if not project_info.license and package_info.normalized_licenses:
         if len(package_info.normalized_licenses) > 1:
-            log.info("Package " + package_info.name + "has more than one license.")
+            log.info("Package " + package_info.name +
+                     "has more than one license.")
         # Always take the first license
         project_info.license = package_info.normalized_licenses[0]
         if project_info.license.lower() == "other":
@@ -82,14 +83,6 @@ def update_package_via_libio(project_info: Dict, package_info: Dict):
         elif int(project_info.star_count) < star_count:
             # always use the highest number
             project_info.star_count = star_count
-
-    if package_info.forks:
-        fork_count = int(package_info.forks)
-        if not project_info.fork_count:
-            project_info.fork_count = fork_count
-        elif int(project_info.fork_count) < fork_count:
-            # always use the highest number
-            project_info.fork_count = fork_count
 
     if package_info.forks:
         fork_count = int(package_info.forks)
@@ -168,7 +161,7 @@ def update_via_pypi(project_info: Dict):
     pypi_info = search.project(manager="pypi", package=project_info.pypi_id)
 
     if not pypi_info:
-        log.info("Unable to find pypi package: " + project_info.pypi_info)
+        log.info("Unable to find pypi package: " + project_info.pypi_id)
         return
 
     pypi_info = Dict(pypi_info)
@@ -183,7 +176,7 @@ def update_via_pypi(project_info: Dict):
         project_info.pypi_monthly_downloads = json.loads(
             pypistats.recent(project_info.pypi_id, "month", format="json")
         )["data"]["last_month"]
-    except Exception as ex:
+    except Exception:
         pass
 
 
@@ -315,7 +308,7 @@ def calc_sourcerank_placing(projects: list):
                 np.sort(np.array(sourcerank_placing[category]))[::-1], 90)
             placing_2 = np.percentile(
                 np.sort(np.array(sourcerank_placing[category]))[::-1], 60)
-            
+
             if project["sourcerank"] >= placing_1:
                 project["sourcerank_placing"] = 1
             elif project["sourcerank"] >= placing_2:

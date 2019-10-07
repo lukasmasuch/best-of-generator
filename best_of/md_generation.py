@@ -143,7 +143,12 @@ def generate_pypi_details(project: Dict, configuration: Dict) -> str:
         pypi_url = project.pypi_url
 
     # https://badgen.net/#pypi
-    details_md = "- **[PyPi](" + pypi_url + ")**" + metrics_md + ":\n"
+
+    # only show : if details are available
+    seperator = "" if not configuration.generate_badges and not configuration.generate_install_hints else ":"
+
+    details_md = "- **[PyPi](" + pypi_url + ")**" + \
+        metrics_md + seperator + "\n"
     if configuration.generate_badges:
         details_md += "![PyPI Version](https://img.shields.io/pypi/v/{pypi_id}?style=social&logo=python&logoColor=black) "
         details_md += "![PyPI Downloads](https://img.shields.io/pypi/dm/{pypi_id}?style=social&logo=python&logoColor=black) "
@@ -155,7 +160,8 @@ def generate_pypi_details(project: Dict, configuration: Dict) -> str:
         details_md += "![Dependent repos](https://img.shields.io/librariesio/dependent-repos/pypi/{pypi_id}?color=informational&logo=python&logoColor=white) "
         details_md += "![PyPI License](https://img.shields.io/pypi/l/{pypi_id}?color=informational&logo=python&logoColor=white) "
 
-    details_md += "\n\t```bash\n\tpip install {pypi_id}\n\t```\n"
+    if configuration.generate_install_hints:
+        details_md += "\n\t```\n\tpip install {pypi_id}\n\t```\n"
     return details_md.format(pypi_id=pypi_id)
 
 
@@ -171,13 +177,17 @@ def generate_conda_details(project: Dict, configuration: Dict) -> str:
     if project.conda_url:
         conda_url = project.conda_url
 
-    details_md = "- **[Conda](" + conda_url + ")**" + metrics_md + ":\n"
+    # only show : if details are available
+    seperator = "" if not configuration.generate_badges and not configuration.generate_install_hints else ":"
+
+    details_md = "- **[Conda](" + conda_url + ")**" + \
+        metrics_md + seperator + "\n"
     if configuration.generate_badges:
         details_md += "![Conda Version](https://img.shields.io/conda/v/anaconda/{conda_id}?style=social) "
         details_md += "![Conda Downloads](https://img.shields.io/conda/dn/anaconda/{conda_id}?style=social) "
         details_md += "![Supported Platforms](https://img.shields.io/conda/pn/anaconda/{conda_id}?color=informational) "
-
-    details_md += "\n\t```bash\n\tconda install -c anaconda {conda_id}\n\t```\n"
+    if configuration.generate_install_hints:
+        details_md += "\n\t```\n\tconda install -c anaconda {conda_id}\n\t```\n"
     return details_md.format(conda_id=conda_id)
 
 
@@ -193,8 +203,12 @@ def generate_dockerhub_details(project: Dict, configuration: Dict) -> str:
         dockerhub_url = project.dockerhub_url
 
     # https://badgen.net/#docker
-    details_md = "- **[Dockerhub](" + dockerhub_url + \
-        ")**" + metrics_md + ":\n"
+
+    # only show : if details are available
+    seperator = "" if not configuration.generate_badges and not configuration.generate_install_hints else ":"
+
+    details_md = "- **[Dockerhub](" + dockerhub_url + ")**" + \
+        metrics_md + seperator + "\n"
     if configuration.generate_badges:
         details_md += "![Docker Pulls](https://img.shields.io/docker/pulls/{dockerhub_id}?logo=docker&label=pulls&color=informational&logoColor=white) "
         details_md += "![Docker Stars](https://img.shields.io/docker/stars/{dockerhub_id}?logo=docker&label=stars&color=informational&logoColor=white) "
@@ -205,7 +219,8 @@ def generate_dockerhub_details(project: Dict, configuration: Dict) -> str:
         details_md += "![MicroBadger Layers](https://img.shields.io/microbadger/layers/{dockerhub_id}?logo=docker&color=informational&logoColor=white) "
         details_md += "![MicroBadger Size](https://img.shields.io/microbadger/image-size/{dockerhub_id}?logo=docker&color=informational&logoColor=white) "
 
-    details_md += "\n\t```bash\n\tdocker pull {dockerhub_id}\n\t```\n"
+    if configuration.generate_install_hints:
+        details_md += "\n\t```\n\tdocker pull {dockerhub_id}\n\t```\n"
     return details_md.format(dockerhub_id=dockerhub_id)
 
 
@@ -221,7 +236,11 @@ def generate_npm_details(project: Dict, configuration: Dict) -> str:
         npm_url = project.npm_url
 
     # https://badgen.net/#npm
-    details_md = "- **[NPM](" + npm_url + ")**" + metrics_md + ":\n"
+
+    # only show : if details are available
+    seperator = "" if not configuration.generate_badges and not configuration.generate_install_hints else ":"
+
+    details_md = "- **[NPM](" + npm_url + ")**" + metrics_md + seperator + "\n"
     if configuration.generate_badges:
         details_md += "![NPM Version](https://img.shields.io/npm/v/{npm_id}?style=social&logo=node.js&logoColor=black) "
         details_md += "![NPM Downloads](https://img.shields.io/npm/dm/{npm_id}?style=social&logo=node.js&logoColor=black) "
@@ -234,7 +253,8 @@ def generate_npm_details(project: Dict, configuration: Dict) -> str:
         details_md += "![NPM Snyk Vulnerabilities](https://img.shields.io/snyk/vulnerabilities/npm/{npm_id}?color=informational&logo=snyk&logoColor=white) "
         details_md += "![NPM JsDelivr Hits](https://img.shields.io/jsdelivr/npm/hm/{npm_id}?color=informational&logo=jsdelivr&logoColor=white) "
 
-    details_md += "\n\t```bash\n\tnpm install {npm_id}\n\t```\n"
+    if configuration.generate_install_hints:
+        details_md += "\n\t```\n\tnpm install {npm_id}\n\t```\n"
     return details_md.format(npm_id=npm_id)
 
 
@@ -263,7 +283,12 @@ def generate_github_details(project: Dict, configuration: Dict) -> str:
         github_url = project.github_url
 
     # https://badgen.net/#github
-    details_md = "- **[GitHub](" + github_url + ")**" + metrics_md + ":\n"
+
+    # only show : if details are available
+    seperator = "" if not configuration.generate_badges and not configuration.generate_install_hints else ":"
+
+    details_md = "- **[GitHub](" + github_url + ")**" + \
+        metrics_md + seperator + "\n"
     if configuration.generate_badges:
         details_md += "![GitHub Stars](https://img.shields.io/github/stars/{github_id}?style=social) "
         details_md += "![GitHub Forks](https://img.shields.io/github/forks/{github_id}?style=social) "
@@ -286,7 +311,8 @@ def generate_github_details(project: Dict, configuration: Dict) -> str:
         # Github API Limit: details_md += "![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/{github_id}.svg) "
         # Github API Limit: details_md += "![Percentage of issues still open](http://isitmaintained.com/badge/open/{github_id}.svg) "
 
-    details_md += "\n\t```bash\n\tgit clone https://github.com/{github_id}\n\t```\n"
+    if configuration.generate_install_hints:
+        details_md += "\n\t```\n\tgit clone https://github.com/{github_id}\n\t```\n"
     return details_md.format(github_id=github_id)
 
 
@@ -403,8 +429,17 @@ def generate_toc(categories: OrderedDict):
     for category in categories:
         title = categories[category]["title"]
         url = "#" + process_md_link(title)
-        toc_md += "- [{title}]({url})\n".format(
-            title=categories[category]["title"], url=url)
+
+        project_count = 0
+        if "projects" in categories[category] and categories[category]["projects"]:
+            project_count += len(categories[category]["projects"])
+        if "hidden_projects" in categories[category] and categories[category]["hidden_projects"]:
+            project_count += len(categories[category]["hidden_projects"])
+
+        toc_md += "- [{title}]({url}) _{project_count} projects_\n".format(
+            title=categories[category]["title"],
+            url=url,
+            project_count=project_count)
     return toc_md
 
 
@@ -436,5 +471,4 @@ def generate_md(categories: OrderedDict, configuration: Dict):
         else:
             log.warning("The markdown footer file does not exist: " +
                         os.path.abspath(configuration.markdown_footer_file))
-
     return full_markdown
