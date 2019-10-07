@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import urllib.parse
 from collections import OrderedDict
 from datetime import datetime
@@ -87,8 +88,8 @@ def generate_license_info(project: Dict, configuration: Dict) -> str:
 
         if licenses_warning:
             licenses_name = "❗️" + licenses_name
-
-        license_template = ' <code><a href="{url}" target="_blank">{text}</a></code>'
+        # target="_blank"
+        license_template = ' <code><a href="{url}">{text}</a></code>'
         license_md += license_template.format(
             url=licenses_url, text=licenses_name)
     else:
@@ -98,7 +99,8 @@ def generate_license_info(project: Dict, configuration: Dict) -> str:
 
 def generate_links_list(project: Dict, configuration: Dict) -> str:
     links_md = ""
-    link_template = ' <code><a href="{url}" target="_blank">{text}</a></code>'
+    # target="_blank"
+    link_template = ' <code><a href="{url}">{text}</a></code>'
     if project.github_url and project.homepage != project.github_url:
         links_md += link_template.format(url=project.npm_url, text="github")
 
@@ -318,7 +320,10 @@ def generate_project_md(project: Dict, configuration: Dict):
     project_md = ""
     metrics_md = generate_metrics_info(project, configuration)
     license_md = generate_license_info(project, configuration)
-    links_md = generate_links_list(project, configuration)
+    links_md = ""
+
+    if configuration.generate_link_shortcuts:
+        links_md = generate_links_list(project, configuration)
 
     metadata_md = ""
     if license_md and links_md:
@@ -330,7 +335,8 @@ def generate_project_md(project: Dict, configuration: Dict):
 
     body_md = generate_project_body(project, configuration)
 
-    project_md = '<details><summary><a href="{homepage}" target="_blank"><b>{name}</b></a> {metrics}- {description}{metadata}</summary>{body}</details>'.format(
+    # target="_blank"
+    project_md = '<details><summary><a href="{homepage}"><b>{name}</b></a> {metrics}- {description}{metadata}</summary>{body}</details>'.format(
         homepage=project.homepage,
         name=project.name,
         description=project.description,
@@ -387,11 +393,16 @@ def generate_legend(configuration: Dict, title_md_prefix="##"):
     return legend_md
 
 
+def process_md_link(text: str) -> str:
+    text = text.lower().replace(" ", "-")
+    return re.compile(r"[^a-zA-Z0-9-]").sub("", text)
+
+
 def generate_toc(categories: OrderedDict):
     toc_md = "## Contents\n\n"
     for category in categories:
         title = categories[category]["title"]
-        url = "#" + title.lower().replace(" ", "-")
+        url = "#" + process_md_link(title)
         toc_md += "- [{title}]({url})\n".format(
             title=categories[category]["title"], url=url)
     return toc_md
