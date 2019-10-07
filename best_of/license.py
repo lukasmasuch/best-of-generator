@@ -30,9 +30,9 @@ licenses = [
         "warning": False
     },
     {
-        "name": "BSD-3-Clause",
+        "name": "BSD-3",
         "spdx_id": "BSD-3-Clause",
-        "keywords": ["bsd-3"],
+        "keywords": ["bsd-3", "bds-3-clause"],
         "url": "https://tldrlegal.com/license/bsd-3-clause-license-(revised)",
         "warning": False
     },
@@ -58,9 +58,9 @@ licenses = [
         "warning": False
     },
     {
-        "name": "BSD-2-Clause",
+        "name": "BSD-2",
         "spdx_id": "BSD-2-Clause",
-        "keywords": ["bsd-2", "freebsd"],
+        "keywords": ["bsd-2", "freebsd", "bsd-2-Clause"],
         "url": "https://tldrlegal.com/license/bsd-2-clause-license-(freebsd)",
         "warning": False
     },
