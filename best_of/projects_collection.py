@@ -143,6 +143,7 @@ def update_via_npm(project_info: Dict):
     npm_info = search.project(manager="npm", package=project_info.npm_id)
 
     if not npm_info:
+        log.info("Unable to find npm package: " + project_info.npm_id)
         return
 
     npm_info = Dict(npm_info)
@@ -171,6 +172,7 @@ def update_via_pypi(project_info: Dict):
     pypi_info = search.project(manager="pypi", package=project_info.pypi_id)
 
     if not pypi_info:
+        log.info("Unable to find pypi package: " + project_info.pypi_info)
         return
 
     pypi_info = Dict(pypi_info)
@@ -205,6 +207,7 @@ def update_via_github(project_info: Dict):
     github_info = search.repository(host="github", owner=owner, repo=repo)
 
     if not github_info:
+        log.info("Unable to find github repo: " + project_info.github_id)
         return
 
     github_info = Dict(github_info)
@@ -230,10 +233,10 @@ def update_via_github(project_info: Dict):
         except Exception as ex:
             log.warning("Failed to parse timestamp: " +
                         str(github_info.created_at), exc_info=ex)
-
-    if github_info.updated_at:
+    # pushed_at is the last github push, updated_at is the last sync?
+    if github_info.pushed_at:
         try:
-            updated_at = parse(str(github_info.updated_at))
+            updated_at = parse(str(github_info.pushed_at))
             if not project_info.updated_at:
                 project_info.updated_at = updated_at
             elif project_info.updated_at < updated_at:
@@ -241,7 +244,7 @@ def update_via_github(project_info: Dict):
                 project_info.updated_at = updated_at
         except Exception:
             log.warning("Failed to parse timestamp: " +
-                        str(github_info.updated_at), exc_info=ex)
+                        str(github_info.pushed_at), exc_info=ex)
 
     if github_info.rank:
         sourcerank = int(github_info.rank)
@@ -466,7 +469,7 @@ def collect_projects_info(projects: list, categories: OrderedDict, configuration
     unique_projects = set()
     for project in tqdm(projects):
         project_info = Dict(project)
-        
+
         if project_info.name.lower() in unique_projects:
             log.info("Project " + project_info.name + " is duplicated.")
             continue
@@ -485,11 +488,11 @@ def collect_projects_info(projects: list, categories: OrderedDict, configuration
         # set the show flag for every project, if not shown it will be moved to the More section
         apply_filters(project_info, configuration)
 
+        # make sure that all defined values (but not category) are guaranteed to be used
+        project_info.update(project)
+
         # Check and update the project category
         update_project_category(project_info, categories)
-
-        # make sure that all defined values are guaranteed to be used
-        project_info.update(project)
 
         projects_processed.append(project_info.to_dict())
 
