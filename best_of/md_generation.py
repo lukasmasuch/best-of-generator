@@ -197,6 +197,20 @@ def generate_dockerhub_details(project: Dict, configuration: Dict) -> str:
         return ""
 
     metrics_md = ""
+    if project.dockerhub_pulls:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "📥 " + \
+            str(utils.simplify_number(project.dockerhub_pulls))
+
+    if project.dockerhub_stars:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "⭐ " + \
+            str(utils.simplify_number(project.dockerhub_stars))
+
+    if metrics_md:
+        metrics_md = " (" + metrics_md + ")"
 
     dockerhub_url = ""
     if project.dockerhub_url:
@@ -380,7 +394,7 @@ def generate_category_md(category: Dict, configuration: Dict, title_md_prefix="#
     category_md += '<a href="#"><img align="right" width="15" height="15" src="https://i.ibb.co/2PS8bhR/up-arrow.png" alt="Back to top"></a>\n\n'
 
     if category.subtitle:
-        category_md += "_" + category.subtitle + "_\n\n"
+        category_md += "_" + category.subtitle.strip() + "_\n\n"
 
     if category.projects:
         for project in category.projects:
@@ -408,7 +422,7 @@ def generate_legend(configuration: Dict, title_md_prefix="##"):
     legend_md += "- 💤 Inactive project _(" + str(
         configuration.project_inactive_months) + " month no activity)_\n"
     legend_md += "- 💀 Dead project _(" + str(
-        configuration.project_dead_months) + " year no activity)_\n"
+        configuration.project_dead_months) + " month no activity)_\n"
     legend_md += "- ❗️ Warning _(e.g. missing/risky license)_\n"
     legend_md += "- 👨‍💻 Contributors count from Github\n"
     legend_md += "- 🔀 Fork count from Github\n"
