@@ -18,11 +18,12 @@ def cli():
 
 @click.command("generate")
 @click.option("--libraries-key", "-l", required=True, type=click.STRING, help="Libraries.io API Key: https://libraries.io/api")
+@click.option("--github-key", "-g", required=False, type=click.STRING, help="Github API Key: https://github.com/settings/tokens")
 @click.argument('path', type=click.Path(exists=True))
-def generate(path, libraries_key):
+def generate(path, libraries_key, github_key):
     """ Generates a best-of markdown README from a projects.yaml. """
     from best_of import generator
-    generator.generate_markdown(path, libraries_key)
+    generator.generate_markdown(path, libraries_key, github_key)
 
 
 cli.add_command(generate)

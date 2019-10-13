@@ -9,11 +9,16 @@ import pandas as pd
 log = logging.getLogger(__name__)
 
 
-def generate_markdown(projects_yaml_path: str, libraries_api_key: str):
+def generate_markdown(projects_yaml_path: str, libraries_api_key: str, github_api_key: str = None):
     try:
         # Set libraries api key
         os.environ["LIBRARIES_API_KEY"] = libraries_api_key
 
+        if github_api_key:
+            os.environ["GITHUB_API_KEY"] = github_api_key
+        else:
+            log.info("No Github API key provided. Only using libraries.io for fetching repo information.")
+        
         # Needs to be imported without setting environment variable
         from best_of import md_generation, projects_collection
         parsed_yaml = {}
