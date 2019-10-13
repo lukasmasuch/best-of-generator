@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 import numpy as np
 import pypistats
+import requests
 from addict import Dict
 from dateutil.parser import parse
 from pybraries.search import Search
@@ -150,7 +151,41 @@ def update_via_dockerhub(project_info: Dict):
     if not project_info.dockerhub_url:
         project_info.dockerhub_url = "https://hub.docker.com/r/" + project_info.dockerhub_id
 
-    # TODO call dockerhub API to update project metadata
+    try:
+        request = requests.get(
+            'https://hub.docker.com/v2/repositories/' + project_info.dockerhub_id)
+        if request.status_code != 200:
+            log.info("Unable to find image via dockerhub api: " +
+                     project_info.dockerhub_id + "(" + str(request.status_code) + ")")
+            return
+        dockerhub_info = Dict(request.json())
+    except Exception as ex:
+        log.info("Failed to request docker iamge via dockerhub api: " +
+                 project_info.dockerhub_id, exc_info=ex)
+        return
+
+    if dockerhub_info.last_updated:
+        try:
+            updated_at = parse(str(dockerhub_info.last_updated))
+            if not project_info.updated_at:
+                project_info.updated_at = updated_at
+            elif project_info.updated_at < updated_at:
+                # always use the latest available date
+                project_info.updated_at = updated_at
+        except Exception as ex:
+            log.warning("Failed to parse timestamp: " +
+                        str(project_info.last_updated), exc_info=ex)
+
+    if dockerhub_info.star_count:
+        project_info.dockerhub_stars = dockerhub_info.star_count
+
+    if dockerhub_info.pull_count:
+        project_info.dockerhub_pulls = dockerhub_info.pull_count
+
+    if not project_info.description and dockerhub_info.description:
+        description = utils.process_description(dockerhub_info.description)
+        if description:
+            project_info.description = description
 
 
 def update_via_pypi(project_info: Dict):
@@ -180,7 +215,151 @@ def update_via_pypi(project_info: Dict):
         pass
 
 
-def update_via_github(project_info: Dict):
+def update_via_github_api(project_info: Dict):
+    if not project_info.github_id:
+        return
+
+    github_api_token = os.getenv("GITHUB_API_KEY")
+    if not github_api_token:
+        return
+
+    if '/' not in project_info.github_id:
+        log.info("The github project id is not valid: " +
+                 project_info.github_id)
+        return
+
+    owner = project_info.github_id.split('/')[0]
+    repo = project_info.github_id.split('/')[1]
+
+    # GraphQL query
+    query = """
+query($owner: String!, $repo: String!) {
+  repository(owner: $owner, name: $repo) {
+    name
+    description
+    url
+    homepageUrl
+    createdAt
+    updatedAt
+    pushedAt
+    diskUsage
+    primaryLanguage {
+      name
+    }
+    licenseInfo {
+      spdxId
+    }
+    stargazers {
+      totalCount
+    }
+    pullRequests {
+      totalCount
+    }
+    forks {
+      totalCount
+    }
+    watchers {
+      totalCount 
+    }
+    repositoryTopics(first: 100) {
+      nodes {
+        topic {
+          name
+        }
+      }
+    }
+    issues(states: [OPEN]) {
+      totalCount
+    }
+  }
+}
+"""
+
+    headers = {"Authorization": "token " + github_api_token}
+    variables = {
+        "owner": owner,
+        "repo": repo
+    }
+
+    try:
+        request = requests.post('https://api.github.com/graphql',
+                                json={'query': query, 'variables': variables}, headers=headers)
+        if request.status_code != 200:
+            log.info("Unable to find github repo via github api: " +
+                     project_info.github_id + "(" + str(request.status_code) + ")")
+            return
+        github_info = Dict(request.json()["data"]["repository"])
+    except Exception as ex:
+        log.info("Failed to request github repo via github api: " +
+                 project_info.github_id, exc_info=ex)
+        return
+
+    if not project_info.github_url and github_info.url:
+        project_info.github_url = github_info.url
+
+    if not project_info.homepage:
+        project_info.homepage = project_info.github_url
+
+    if not project_info.license and github_info.licenseInfo and github_info.licenseInfo.spdxId:
+        # if licenses is noassertion, then it is not provided
+        if github_info.licenseInfo.spdxId.lower() != "noassertion":
+            project_info.license = github_info.licenseInfo.spdxId
+
+    if github_info.createdAt:
+        try:
+            created_at = parse(str(github_info.createdAt))
+            if not project_info.created_at:
+                project_info.created_at = created_at
+            elif project_info.created_at > created_at:
+                # always use the oldest available date
+                project_info.created_at = created_at
+        except Exception as ex:
+            log.warning("Failed to parse timestamp: " +
+                        str(github_info.createdAt), exc_info=ex)
+    # pushed_at is the last github push, updated_at is the last sync?
+    if github_info.pushedAt:
+        try:
+            updated_at = parse(str(github_info.pushedAt))
+            if not project_info.updated_at:
+                project_info.updated_at = updated_at
+            elif project_info.updated_at < updated_at:
+                # always use the latest available date
+                project_info.updated_at = updated_at
+        except Exception as ex:
+            log.warning("Failed to parse timestamp: " +
+                        str(github_info.pushedAt), exc_info=ex)
+
+    if github_info.forks and github_info.forks.totalCount:
+        fork_count = int(github_info.forks.totalCount)
+        if not project_info.fork_count:
+            project_info.fork_count = fork_count
+        elif int(project_info.fork_count) < fork_count:
+            # always use the highest number
+            project_info.fork_count = fork_count
+
+    if github_info.issues and github_info.issues.totalCount:
+        open_issue_count = int(github_info.issues.totalCount)
+        if not project_info.open_issue_count:
+            project_info.open_issue_count = open_issue_count
+        elif int(project_info.open_issue_count) < open_issue_count:
+            # always use the highest number
+            project_info.open_issue_count = open_issue_count
+
+    if github_info.stargazers and github_info.stargazers.totalCount:
+        star_count = int(github_info.stargazers.totalCount)
+        if not project_info.star_count:
+            project_info.star_count = star_count
+        elif int(project_info.star_count) < star_count:
+            # always use the highest number
+            project_info.star_count = star_count
+
+    if not project_info.description and github_info.description:
+        description = utils.process_description(github_info.description)
+        if description:
+            project_info.description = description
+
+
+def update_repo_via_libio(project_info: Dict):
     if not project_info.github_id:
         return
 
@@ -196,7 +375,8 @@ def update_via_github(project_info: Dict):
     github_info = search.repository(host="github", owner=owner, repo=repo)
 
     if not github_info:
-        log.info("Unable to find github repo: " + project_info.github_id)
+        log.info("Unable to find github repo via libraries.io: " +
+                 project_info.github_id)
         return
 
     github_info = Dict(github_info)
@@ -231,7 +411,7 @@ def update_via_github(project_info: Dict):
             elif project_info.updated_at < updated_at:
                 # always use the latest available date
                 project_info.updated_at = updated_at
-        except Exception:
+        except Exception as ex:
             log.warning("Failed to parse timestamp: " +
                         str(github_info.pushed_at), exc_info=ex)
 
@@ -279,6 +459,11 @@ def update_via_github(project_info: Dict):
         description = utils.process_description(github_info.description)
         if description:
             project_info.description = description
+
+
+def update_via_github(project_info: Dict):
+    update_via_github_api(project_info)
+    update_repo_via_libio(project_info)
 
 
 def calc_sourcerank_placing(projects: list):
@@ -373,7 +558,7 @@ def prepare_configuration(config: dict) -> OrderedDict:
 
     if "project_inactive_months" not in config:
         config.project_inactive_months = 6
-    
+
     if "project_dead_months" not in config:
         config.project_dead_months = 12
 
@@ -397,7 +582,7 @@ def prepare_configuration(config: dict) -> OrderedDict:
 
     if "require_npm" not in config:
         config.require_npm = False
-    
+
     if "require_conda" not in config:
         config.require_conda = False
 
@@ -409,10 +594,10 @@ def prepare_configuration(config: dict) -> OrderedDict:
 
     if "generate_install_hints" not in config:
         config.generate_install_hints = True
-    
+
     if "generate_toc" not in config:
         config.generate_toc = True
-    
+
     if "generate_link_shortcuts" not in config:
         config.generate_link_shortcuts = False
 
@@ -421,13 +606,13 @@ def prepare_configuration(config: dict) -> OrderedDict:
 
     if "sort_by" not in config:
         config.sort_by = "sourcerank"
-    
+
     if "allowed_licenses" not in config:
         config.allowed_licenses = []
         from best_of.license import licenses
         for license in licenses:
             config.allowed_licenses.append(license["spdx_id"])
-    
+
     return config
 
 
