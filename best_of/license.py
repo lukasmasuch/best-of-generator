@@ -17,7 +17,7 @@ licenses = [
         "warning": False
     },
     {
-        "name": "Apache-2.0",
+        "name": "Apache-2",
         "spdx_id": "Apache-2.0",
         "keywords": ["apache-2", "apache-license-2.0"],
         "url": "https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)",
