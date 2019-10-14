@@ -17,8 +17,9 @@ def generate_markdown(projects_yaml_path: str, libraries_api_key: str, github_ap
         if github_api_key:
             os.environ["GITHUB_API_KEY"] = github_api_key
         else:
-            log.info("No Github API key provided. Only using libraries.io for fetching repo information.")
-        
+            log.info(
+                "No Github API key provided. Only using libraries.io for fetching repo information.")
+
         # Needs to be imported without setting environment variable
         from best_of import md_generation, projects_collection
         parsed_yaml = {}
@@ -34,10 +35,14 @@ def generate_markdown(projects_yaml_path: str, libraries_api_key: str, github_ap
             parsed_yaml = yaml.safe_load(stream)
 
         projects = parsed_yaml["projects"]
+
         config = projects_collection.prepare_configuration(
-            parsed_yaml["configuration"])
+            parsed_yaml["configuration"] if "configuration" in parsed_yaml else {})
+
         categories = projects_collection.prepare_categories(
-            parsed_yaml["categories"])
+            parsed_yaml["categories"] if "categories" in parsed_yaml else [])
+
+        labels = parsed_yaml["labels"] if "labels" in parsed_yaml else []
 
         projects = projects_collection.collect_projects_info(
             projects, categories, config)
@@ -52,7 +57,7 @@ def generate_markdown(projects_yaml_path: str, libraries_api_key: str, github_ap
                 config.projects_history_folder, projects_file_name)
             pd.DataFrame(projects).to_csv(projects_history_file, sep=";")
 
-        markdown = md_generation.generate_md(categories, config)
+        markdown = md_generation.generate_md(categories, config, labels)
 
         # Write markdown to file
         if not config.output_markdown_file:

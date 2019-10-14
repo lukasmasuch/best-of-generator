@@ -24,7 +24,8 @@ def generate_metrics_info(project: Dict, configuration: Dict) -> str:
             elif project.sourcerank_placing == 2:
                 placing_emoji = "🥈"
 
-        metrics_md += " " + placing_emoji + str(project.sourcerank)
+        # TODO: add spacing? " " ?
+        metrics_md += placing_emoji + str(project.sourcerank)
 
     if project.star_count:
         if metrics_md:
@@ -55,7 +56,8 @@ def generate_metrics_info(project: Dict, configuration: Dict) -> str:
     if status_md and metrics_md:
         metrics_md = metrics_md + " · " + status_md
     elif status_md:
-        metrics_md = " " + status_md
+        # TODO: add spacing? " "
+        metrics_md = status_md
 
     if metrics_md:
         # add divider if metrics are available
@@ -66,6 +68,59 @@ def generate_metrics_info(project: Dict, configuration: Dict) -> str:
         metrics_md = metrics_md + " "
 
     return metrics_md
+
+
+def get_label_info(label: str, labels: list) -> Dict:
+    labels_map = {}
+    for label_info in labels:
+        label_info = Dict(label_info)
+        if not label_info.label:
+            continue
+        labels_map[utils.simplify_str(label_info.label)] = label_info
+
+    label_query = utils.simplify_str(label)
+    if label_query not in labels_map:
+        return Dict({"name": label})
+
+    return labels_map[label_query]
+
+
+def generate_project_labels(project: Dict, labels: list) -> str:
+    labels_md = ""
+
+    if not project.labels:
+        return labels_md
+
+    for label in project.labels:
+        label_info = get_label_info(label, labels)
+
+        if not label_info.image and not label_info.name:
+            # no image or name is given, do not add the label
+            # this should not happen
+            continue
+
+        label_md = ""
+        if label_info.image and label_info.name:
+            label_md = '<code><img src="{image}" style="display:inline;" width="13" height="13">{name}</code>'.format(
+                image=label_info.image,
+                name=label_info.name)
+        elif label_info.image:
+            # TODO: try code blocks?
+            label_md = '<code><img src="{image}" style="display:inline;" width="13" height="13"></code>'.format(
+                image=label_info.image)
+        elif label_info.name:
+            label_md = '<code>{name}</code>'.format(name=label_info.name)
+
+        if label_info.url:
+            # Add link to label
+            # target="_blank"?
+            label_md = '<a href="' + label_info.url + '">' + label_md + '</a>'
+
+        if label_md:
+            # Add a single space in front of label:
+            labels_md += " " + label_md.strip()
+
+    return labels_md
 
 
 def generate_license_info(project: Dict, configuration: Dict) -> str:
@@ -356,22 +411,23 @@ def generate_project_body(project: Dict, configuration: Dict):
     return body_md
 
 
-def generate_project_md(project: Dict, configuration: Dict):
+def generate_project_md(project: Dict, configuration: Dict, labels: list):
     project_md = ""
     metrics_md = generate_metrics_info(project, configuration)
     license_md = generate_license_info(project, configuration)
-    links_md = ""
+    labels_md = generate_project_labels(project, labels)
 
     if configuration.generate_link_shortcuts:
-        links_md = generate_links_list(project, configuration)
+        labels_md += generate_links_list(project, configuration)
 
     metadata_md = ""
-    if license_md and links_md:
-        metadata_md = license_md + " · " + links_md
+    if license_md and labels_md:
+        # TODO: add " · " in between?
+        metadata_md = license_md + labels_md
     elif license_md:
         metadata_md = license_md
-    elif links_md:
-        metadata_md = links_md
+    elif labels_md:
+        metadata_md = labels_md
 
     body_md = generate_project_body(project, configuration)
 
@@ -387,7 +443,7 @@ def generate_project_md(project: Dict, configuration: Dict):
     return project_md
 
 
-def generate_category_md(category: Dict, configuration: Dict, title_md_prefix="##"):
+def generate_category_md(category: Dict, configuration: Dict, labels: list, title_md_prefix="##"):
     category_md = ""
 
     category_md += title_md_prefix + " " + category.title + "\n\n"
@@ -398,7 +454,7 @@ def generate_category_md(category: Dict, configuration: Dict, title_md_prefix="#
 
     if category.projects:
         for project in category.projects:
-            project_md = generate_project_md(project, configuration)
+            project_md = generate_project_md(project, configuration, labels)
             category_md += project_md + "\n"
 
     if category.hidden_projects:
@@ -406,7 +462,7 @@ def generate_category_md(category: Dict, configuration: Dict, title_md_prefix="#
             str(len(category.hidden_projects)) + \
             " hidden projects...</summary>\n<br>"
         for project in category.hidden_projects:
-            project_md = generate_project_md(project, configuration)
+            project_md = generate_project_md(project, configuration, labels)
             category_md += project_md + "\n"
         category_md += "</details>\n"
 
@@ -457,7 +513,7 @@ def generate_toc(categories: OrderedDict):
     return toc_md
 
 
-def generate_md(categories: OrderedDict, configuration: Dict):
+def generate_md(categories: OrderedDict, configuration: Dict, labels: list):
     full_markdown = ""
 
     if configuration.markdown_header_file:
@@ -476,7 +532,7 @@ def generate_md(categories: OrderedDict, configuration: Dict):
 
     for category in categories:
         full_markdown += generate_category_md(
-            categories[category], configuration) + "\n\n"
+            categories[category], configuration, labels) + "\n\n"
 
     if configuration.markdown_footer_file:
         if os.path.exists(configuration.markdown_footer_file):
