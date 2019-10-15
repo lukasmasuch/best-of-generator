@@ -484,8 +484,8 @@ def generate_legend(configuration: Dict, title_md_prefix="##"):
     legend_md += "- 🔀 Fork count from Github\n"
     legend_md += "- 📥 Download count from package manager\n"
     legend_md += "- 📦 Number of dependent projects\n"
-    legend_md += "- 📈 Trending project\n"
-    legend_md += "- 💲 Commercial project\n"
+    # legend_md += "- 📈 Trending project\n"
+    # legend_md += "- 💲 Commercial project\n"
     return legend_md
 
 
