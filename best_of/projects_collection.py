@@ -101,7 +101,7 @@ def update_package_via_libio(project_info: Dict, package_info: Dict):
             # always use the highest number
             project_info.sourcerank = sourcerank
 
-    if not project_info.description and package_info.description:
+    if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and package_info.description:
         description = utils.process_description(package_info.description)
         if description:
             project_info.description = description
@@ -182,7 +182,7 @@ def update_via_dockerhub(project_info: Dict):
     if dockerhub_info.pull_count:
         project_info.dockerhub_pulls = dockerhub_info.pull_count
 
-    if not project_info.description and dockerhub_info.description:
+    if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and dockerhub_info.description:
         description = utils.process_description(dockerhub_info.description)
         if description:
             project_info.description = description
@@ -353,7 +353,7 @@ query($owner: String!, $repo: String!) {
             # always use the highest number
             project_info.star_count = star_count
 
-    if not project_info.description and github_info.description:
+    if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and github_info.description:
         description = utils.process_description(github_info.description)
         if description:
             project_info.description = description
@@ -455,7 +455,7 @@ def update_repo_via_libio(project_info: Dict):
             # always use the highest number
             project_info.star_count = star_count
 
-    if not project_info.description and github_info.description:
+    if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and github_info.description:
         description = utils.process_description(github_info.description)
         if description:
             project_info.description = description
