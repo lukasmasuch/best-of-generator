@@ -30,9 +30,12 @@ def remove_special_chars(text: str) -> str:
 def process_description(text: str, max_lenght=70) -> str:
     if not text:
         return None
-
+    # Remove github emoji commands
+    text = re.sub(":[a-zA-Z]*:","", text).strip()
+    
     text = remove_special_chars(text).strip()
     text = text.replace("\"", "")
+
     if not text:
         return text
 
@@ -41,3 +44,6 @@ def process_description(text: str, max_lenght=70) -> str:
         text += "."
 
     return clean_whitespaces(textwrap.shorten(text, width=max_lenght, placeholder=".."))
+
+
+
