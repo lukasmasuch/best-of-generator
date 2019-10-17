@@ -190,6 +190,12 @@ def generate_pypi_details(project: Dict, configuration: Dict) -> str:
         metrics_md += "📥 " + \
             str(utils.simplify_number(project.pypi_monthly_downloads)) + " / month"
 
+    if project.pypi_dependent_project_count:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "📦 " + \
+            str(utils.simplify_number(project.pypi_dependent_project_count))
+    
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"
 
@@ -227,7 +233,12 @@ def generate_conda_details(project: Dict, configuration: Dict) -> str:
 
     # https://anaconda.org/anaconda/anaconda/badges
     metrics_md = ""
-
+    if project.conda_dependent_project_count:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "📦 " + \
+            str(utils.simplify_number(project.conda_dependent_project_count))
+    
     conda_url = ""
     if project.conda_url:
         conda_url = project.conda_url
@@ -299,7 +310,18 @@ def generate_npm_details(project: Dict, configuration: Dict) -> str:
         return ""
 
     metrics_md = ""
-
+    if project.npm_monthly_downloads:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "📥 " + \
+            str(utils.simplify_number(project.npm_monthly_downloads)) + " / month"
+    
+    if project.npm_dependent_project_count:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "📦 " + \
+            str(utils.simplify_number(project.cnpm_dependent_project_count))
+    
     npm_url = ""
     if project.npm_url:
         npm_url = project.npm_url
@@ -344,6 +366,11 @@ def generate_github_details(project: Dict, configuration: Dict) -> str:
             metrics_md += " · "
         metrics_md += "🔀 " + str(utils.simplify_number(project.fork_count))
 
+    if project.open_issue_count and project.closed_issue_count:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "📋 " + str(int((project.open_issue_count / (project.closed_issue_count + project.open_issue_count)) * 100)) + "%"
+    
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"
 
@@ -432,7 +459,7 @@ def generate_project_md(project: Dict, configuration: Dict, labels: list):
     body_md = generate_project_body(project, configuration)
 
     # target="_blank"
-    project_md = '<details><summary><a href="{homepage}"><b>{name}</b></a> {metrics}- {description}{metadata}</summary>{body}</details>'.format(
+    project_md = '<details><summary><b><a href="{homepage}">{name}</a></b> {metrics}- {description}{metadata}</summary>{body}</details>'.format(
         homepage=project.homepage,
         name=project.name,
         description=project.description,
@@ -447,7 +474,7 @@ def generate_category_md(category: Dict, configuration: Dict, labels: list, titl
     category_md = ""
 
     category_md += title_md_prefix + " " + category.title + "\n\n"
-    category_md += '<a href="#"><img align="right" width="15" height="15" src="https://i.ibb.co/2PS8bhR/up-arrow.png" alt="Back to top"></a>\n\n'
+    category_md += '<a href="#contents"><img align="right" width="15" height="15" src="https://i.ibb.co/2PS8bhR/up-arrow.png" alt="Back to top"></a>\n\n'
 
     if category.subtitle:
         category_md += "_" + category.subtitle.strip() + "_\n\n"
@@ -471,7 +498,9 @@ def generate_category_md(category: Dict, configuration: Dict, labels: list, titl
 
 def generate_legend(configuration: Dict, title_md_prefix="##"):
     legend_md = title_md_prefix + " Explanation\n"
-    legend_md += "- 🥇🥈🥉 [SourceRank](https://docs.libraries.io/overview.html#sourcerank) from Libraries.io\n"
+    # Score that various project-quality metrics
+    # score for a package based on a number of metrics
+    legend_md += "- 🥇🥈🥉 [SourceRank](https://docs.libraries.io/overview.html#sourcerank): Combined project-quality score\n"
     legend_md += "- ⭐️ Star count from Github\n"
     legend_md += "- 🐣 New project _(less than " + \
         str(configuration.project_new_months) + " month old)_\n"
@@ -482,6 +511,7 @@ def generate_legend(configuration: Dict, title_md_prefix="##"):
     legend_md += "- ❗️ Warning _(e.g. missing/risky license)_\n"
     legend_md += "- 👨‍💻 Contributors count from Github\n"
     legend_md += "- 🔀 Fork count from Github\n"
+    legend_md += "- 📋 Percentage of open issues from Github\n"
     legend_md += "- 📥 Download count from package manager\n"
     legend_md += "- 📦 Number of dependent projects\n"
     # legend_md += "- 📈 Trending project\n"
