@@ -1,6 +1,8 @@
 import json
 import logging
+import math
 import os
+import re
 from collections import OrderedDict
 from datetime import datetime
 from urllib.parse import urlparse
@@ -20,9 +22,12 @@ log = logging.getLogger(__name__)
 
 MIN_PROJECT_DESC_LENGTH = 10
 DEFAULT_OTHERS_CATEGORY_ID = "others"
+# Official Regex: https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+SEMVER_VALIDATION = re.compile(
+    "^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$")
 
 
-def update_package_via_libio(project_info: Dict, package_info: Dict):
+def update_package_via_libio(project_info: Dict, package_info: Dict, package_manager: str):
     if not project_info or not package_info:
         return
 
@@ -77,6 +82,28 @@ def update_package_via_libio(project_info: Dict, package_info: Dict):
             log.warning("Failed to parse timestamp: " +
                         str(package_info.versions[0].published_at), exc_info=ex)
 
+    if package_info.latest_stable_release_published_at:
+        try:
+            latest_stable_release_published_at = parse(
+                str(package_info.latest_stable_release_published_at))
+            if not project_info.latest_stable_release_published_at or project_info.latest_stable_release_published_at < latest_stable_release_published_at:
+                # always use the latest available date
+                project_info.latest_stable_release_published_at = latest_stable_release_published_at
+                project_info.latest_stable_release_number = str(
+                    package_info.latest_stable_release_number)
+        except Exception as ex:
+            log.warning("Failed to parse timestamp: " +
+                        str(package_info.latest_stable_release_published_at), exc_info=ex)
+
+    if package_info.versions:
+        # Number of released versions
+        release_count = int(len(package_info.versions))
+        if not project_info.release_count:
+            project_info.release_count = release_count
+        elif int(project_info.release_count) < release_count:
+            # always use the highest number
+            project_info.release_count = release_count
+
     if package_info.stars:
         star_count = int(package_info.stars)
         if not project_info.star_count:
@@ -101,6 +128,22 @@ def update_package_via_libio(project_info: Dict, package_info: Dict):
             # always use the highest number
             project_info.sourcerank = sourcerank
 
+    if package_info.dependent_repos_count or package_info.dependents_count:
+        dependent_project_count = 0
+
+        if package_info.dependent_repos_count:
+            dependent_project_count += int(package_info.dependent_repos_count)
+        
+        if package_info.dependents_count:
+            dependent_project_count += int(package_info.dependent_repos_count)
+
+        if not project_info.dependent_project_count:
+            project_info.dependent_project_count = 0
+        project_info.dependent_project_count += dependent_project_count
+
+        # Add for project manager
+        project_info[package_manager + "_dependent_project_count"] = dependent_project_count
+        
     if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and package_info.description:
         description = utils.process_description(package_info.description)
         if description:
@@ -122,7 +165,7 @@ def update_via_conda(project_info: Dict):
     if not project_info.conda_url:
         project_info.conda_url = "https://anaconda.org/anaconda/" + project_info.conda_id
 
-    update_package_via_libio(project_info, conda_info)
+    update_package_via_libio(project_info, conda_info, "conda")
 
 
 def update_via_npm(project_info: Dict):
@@ -141,7 +184,33 @@ def update_via_npm(project_info: Dict):
     if not project_info.npm_url:
         project_info.npm_url = "https://www.npmjs.com/package/" + project_info.npm_id
 
-    update_package_via_libio(project_info, npm_info)
+    update_package_via_libio(project_info, npm_info, "npm")
+
+    # Get monthly downloads
+    try:
+        request = requests.get(
+            'https://api.npmjs.org/downloads/point/last-month/' + project_info.npm_id)
+        if request.status_code != 200:
+            log.info("Unable to find package via npm api: " +
+                     project_info.npm_id + "(" + str(request.status_code) + ")")
+            return
+        npm_download_info = Dict(request.json())
+        if npm_download_info.downloads:
+            project_info.npm_monthly_downloads = int(
+                npm_download_info.downloads)
+
+            if not project_info.monthly_downloads:
+                project_info.monthly_downloads = 0
+
+            project_info.monthly_downloads += project_info.npm_monthly_downloads
+
+    except Exception as ex:
+        log.info("Failed to request package via npm api: " +
+                 project_info.npm_id, exc_info=ex)
+        return
+
+    # TODO use npms-api to get additional details:
+    # https://api-docs.npms.io/#api-Package-GetMultiPackageInfo
 
 
 def update_via_dockerhub(project_info: Dict):
@@ -160,7 +229,7 @@ def update_via_dockerhub(project_info: Dict):
             return
         dockerhub_info = Dict(request.json())
     except Exception as ex:
-        log.info("Failed to request docker iamge via dockerhub api: " +
+        log.info("Failed to request docker image via dockerhub api: " +
                  project_info.dockerhub_id, exc_info=ex)
         return
 
@@ -178,9 +247,21 @@ def update_via_dockerhub(project_info: Dict):
 
     if dockerhub_info.star_count:
         project_info.dockerhub_stars = dockerhub_info.star_count
+        if not project_info.star_count:
+            project_info.star_count = 0
+        # Add dockerhub stars to total star count
+        project_info.star_count += dockerhub_info.star_count
 
     if dockerhub_info.pull_count:
-        project_info.dockerhub_pulls = dockerhub_info.pull_count
+        project_info.dockerhub_pulls = int(dockerhub_info.pull_count)
+        if project_info.created_at:
+            # Add to monthly downloads
+            if not project_info.monthly_downloads:
+                project_info.monthly_downloads = 0
+
+            # monthly downloads = total downloads to total month
+            project_info.monthly_downloads += int(project_info.dockerhub_pulls / int(
+                utils.diff_month(datetime.now(), project_info.created_at)))
 
     if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and dockerhub_info.description:
         description = utils.process_description(dockerhub_info.description)
@@ -204,13 +285,19 @@ def update_via_pypi(project_info: Dict):
     if not project_info.pypi_url:
         project_info.pypi_url = "https://pypi.org/project/" + project_info.pypi_id
 
-    update_package_via_libio(project_info, pypi_info)
+    update_package_via_libio(project_info, pypi_info, "pypi")
 
     try:
         # get download count from pypi stats
-        project_info.pypi_monthly_downloads = json.loads(
+        project_info.pypi_monthly_downloads = int(json.loads(
             pypistats.recent(project_info.pypi_id, "month", format="json")
-        )["data"]["last_month"]
+        )["data"]["last_month"])
+
+        if not project_info.monthly_downloads:
+            project_info.monthly_downloads = 0
+
+        project_info.monthly_downloads += int(
+            project_info.pypi_monthly_downloads)
     except Exception:
         pass
 
@@ -268,8 +355,18 @@ query($owner: String!, $repo: String!) {
         }
       }
     }
-    issues(states: [OPEN]) {
+    openIssues: issues(states: OPEN) {
       totalCount
+    }
+    closedIssues: issues(states: CLOSED) {
+      totalCount
+    }
+    commits: object(expression:"master") {
+      ... on Commit {
+        history {
+          totalCount
+        }
+      }
     }
   }
 }
@@ -337,13 +434,21 @@ query($owner: String!, $repo: String!) {
             # always use the highest number
             project_info.fork_count = fork_count
 
-    if github_info.issues and github_info.issues.totalCount:
-        open_issue_count = int(github_info.issues.totalCount)
+    if github_info.openIssues and github_info.openIssues.totalCount:
+        open_issue_count = int(github_info.openIssues.totalCount)
         if not project_info.open_issue_count:
             project_info.open_issue_count = open_issue_count
         elif int(project_info.open_issue_count) < open_issue_count:
             # always use the highest number
             project_info.open_issue_count = open_issue_count
+
+    if github_info.closedIssues and github_info.closedIssues.totalCount:
+        closed_issue_count = int(github_info.closedIssues.totalCount)
+        if not project_info.closed_issue_count:
+            project_info.closed_issue_count = closed_issue_count
+        elif int(project_info.closed_issue_count) < closed_issue_count:
+            # always use the highest number
+            project_info.closed_issue_count = closed_issue_count
 
     if github_info.stargazers and github_info.stargazers.totalCount:
         star_count = int(github_info.stargazers.totalCount)
@@ -352,6 +457,9 @@ query($owner: String!, $repo: String!) {
         elif int(project_info.star_count) < star_count:
             # always use the highest number
             project_info.star_count = star_count
+
+    if github_info.commits and github_info.commits.history and github_info.commits.history.totalCount:
+        project_info.commit_count = int(github_info.commits.history.totalCount)
 
     if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and github_info.description:
         description = utils.process_description(github_info.description)
@@ -465,6 +573,90 @@ def update_via_github(project_info: Dict):
     update_via_github_api(project_info)
     update_repo_via_libio(project_info)
 
+
+def calc_sourcerank(project_info: Dict):
+    sourcerank = 0
+
+    # Basic info present?
+    if project_info.homepage and project_info.description:
+        # TODO: check for keywords
+        # TODO: check hasX from libio
+        sourcerank += 1
+
+    # Source repository present?
+    if project_info.github_url:
+        # For now only check for github
+        sourcerank += 1
+
+    # TODO: Readme present?
+
+    # License present?
+    if project_info.license:
+        sourcerank += 1
+        # Custom addition: Permissive & common license
+        project_license_metadata = get_license(project_info.license)
+        if project_license_metadata and "warning" in project_license_metadata and project_license_metadata["warning"] is False:
+            sourcerank += 1
+
+    # Has multiple versions?
+    if project_info.release_count and project_info.release_count > 1:
+        sourcerank += 1
+
+    # Follows SemVer?
+    if project_info.latest_stable_release_number and SEMVER_VALIDATION.match(project_info.latest_stable_release_number):
+        sourcerank += 1
+
+    # Recent release? within 6 month
+    if project_info.latest_stable_release_published_at:
+        month_since_latest_release = utils.diff_month(
+            datetime.now(), project_info.latest_stable_release_published_at)
+        if month_since_latest_release < 6:
+            sourcerank += 1
+
+    # Custom addition: Check if repo was updated within the last 3 month
+    if project_info.updated_at:
+        project_inactive_month = utils.diff_month(
+            datetime.now(), project_info.updated_at)
+        if project_inactive_month < 3:
+            sourcerank += 1
+
+    # Not brand new?
+    if project_info.created_at:
+        project_age = utils.diff_month(datetime.now(), project_info.created_at)
+        if project_age >= 6:
+            sourcerank += 1
+
+    # 1.0.0 or greater? - Ignored for now
+    # TODO save last version number and last version date
+
+    if project_info.dependent_project_count:
+        # TODO: Difference between repos and packages?
+        sourcerank += round(math.log(project_info.dependent_project_count)/1.5)
+    
+    # Stars  - Logarithmic scale
+    if project_info.star_count:
+        sourcerank += round(math.log(project_info.star_count)/2)
+
+    # Contributors - Logarithmic scale
+    if project_info.contributor_count:
+        sourcerank += round(math.log(project_info.contributor_count)/2) - 1
+
+    # Custom addition: Forks - Logarithmic scale
+    if project_info.fork_count:
+        sourcerank += round(math.log(project_info.fork_count)/2)
+
+    # Custom addition: Monthly downloads - Logarithmic scale
+    if project_info.monthly_downloads:
+        sourcerank += round(math.log(project_info.monthly_downloads)/2) - 1
+
+    # Custom addition: Commit count - Logarithmic scale
+    if project_info.commit_count:
+        sourcerank += round(math.log(project_info.commit_count)/2) - 1
+
+    # Minus if issues not activated or repo archived
+
+    # TODO: Closed/Open Issue count, e.g. https://isitmaintained.com/project/ml-tooling/ml-workspace
+    return sourcerank
 
 def calc_sourcerank_placing(projects: list):
     sourcerank_placing = {}
@@ -730,6 +922,12 @@ def collect_projects_info(projects: list, categories: OrderedDict, configuration
 
         # Check and update the project category
         update_project_category(project_info, categories)
+
+        # Calculate an improved source rank metric
+        adapted_sourcerank = calc_sourcerank(project_info)
+        if not project_info.sourcerank or project_info.sourcerank < adapted_sourcerank:
+            # Use the rank that is higher 
+            project_info.sourcerank = adapted_sourcerank
 
         projects_processed.append(project_info.to_dict())
 
