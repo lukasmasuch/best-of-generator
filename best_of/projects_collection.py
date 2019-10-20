@@ -5,7 +5,7 @@ import os
 import re
 from collections import OrderedDict
 from datetime import datetime
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import numpy as np
 import pypistats
@@ -133,7 +133,7 @@ def update_package_via_libio(project_info: Dict, package_info: Dict, package_man
 
         if package_info.dependent_repos_count:
             dependent_project_count += int(package_info.dependent_repos_count)
-        
+
         if package_info.dependents_count:
             dependent_project_count += int(package_info.dependent_repos_count)
 
@@ -142,8 +142,9 @@ def update_package_via_libio(project_info: Dict, package_info: Dict, package_man
         project_info.dependent_project_count += dependent_project_count
 
         # Add for project manager
-        project_info[package_manager + "_dependent_project_count"] = dependent_project_count
-        
+        project_info[package_manager +
+                     "_dependent_project_count"] = dependent_project_count
+
     if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and package_info.description:
         description = utils.process_description(package_info.description)
         if description:
@@ -155,7 +156,8 @@ def update_via_conda(project_info: Dict):
         return
 
     search = Search()
-    conda_info = search.project(manager="conda", package=project_info.conda_id)
+    conda_info = search.project(
+        manager="conda", package=quote(project_info.conda_id, safe=""))
 
     if not conda_info:
         return
@@ -173,7 +175,8 @@ def update_via_npm(project_info: Dict):
         return
 
     search = Search()
-    npm_info = search.project(manager="npm", package=project_info.npm_id)
+    npm_info = search.project(
+        manager="npm", package=quote(project_info.npm_id, safe=""))
 
     if not npm_info:
         log.info("Unable to find npm package: " + project_info.npm_id)
@@ -189,7 +192,7 @@ def update_via_npm(project_info: Dict):
     # Get monthly downloads
     try:
         request = requests.get(
-            'https://api.npmjs.org/downloads/point/last-month/' + project_info.npm_id)
+            'https://api.npmjs.org/downloads/point/last-month/' + quote(project_info.npm_id, safe=""))
         if request.status_code != 200:
             log.info("Unable to find package via npm api: " +
                      project_info.npm_id + "(" + str(request.status_code) + ")")
@@ -225,7 +228,7 @@ def update_via_dockerhub(project_info: Dict):
             'https://hub.docker.com/v2/repositories/' + project_info.dockerhub_id)
         if request.status_code != 200:
             log.info("Unable to find image via dockerhub api: " +
-                     project_info.dockerhub_id + "(" + str(request.status_code) + ")")
+                     project_info.dockerhub_id + " (" + str(request.status_code) + ")")
             return
         dockerhub_info = Dict(request.json())
     except Exception as ex:
@@ -274,7 +277,8 @@ def update_via_pypi(project_info: Dict):
         return
 
     search = Search()
-    pypi_info = search.project(manager="pypi", package=project_info.pypi_id)
+    pypi_info = search.project(
+        manager="pypi", package=quote(project_info.pypi_id, safe=""))
 
     if not pypi_info:
         log.info("Unable to find pypi package: " + project_info.pypi_id)
@@ -318,7 +322,12 @@ def update_via_github_api(project_info: Dict):
     owner = project_info.github_id.split('/')[0]
     repo = project_info.github_id.split('/')[1]
 
+    # TODO: parse github dependents: https://github.com/badgen/badgen.net/blob/master/endpoints/github.ts#L406
+    # TODO: Github assets download: https://github.com/badgen/badgen.net/blob/master/endpoints/github.ts#L125
+    # TODO: latest stable release, PR...
+
     # GraphQL query
+    # https://github.com/badgen/badgen.net/blob/master/endpoints/github.ts#L214
     query = """
 query($owner: String!, $repo: String!) {
   repository(owner: $owner, name: $repo) {
@@ -347,6 +356,12 @@ query($owner: String!, $repo: String!) {
     }
     watchers {
       totalCount 
+    }
+    pullRequests {
+      totalCount
+    }
+    releases {
+      totalCount
     }
     repositoryTopics(first: 100) {
       nodes {
@@ -383,7 +398,7 @@ query($owner: String!, $repo: String!) {
                                 json={'query': query, 'variables': variables}, headers=headers)
         if request.status_code != 200:
             log.info("Unable to find github repo via github api: " +
-                     project_info.github_id + "(" + str(request.status_code) + ")")
+                     project_info.github_id + " (" + str(request.status_code) + ")")
             return
         github_info = Dict(request.json()["data"]["repository"])
     except Exception as ex:
@@ -632,7 +647,7 @@ def calc_sourcerank(project_info: Dict):
     if project_info.dependent_project_count:
         # TODO: Difference between repos and packages?
         sourcerank += round(math.log(project_info.dependent_project_count)/1.5)
-    
+
     # Stars  - Logarithmic scale
     if project_info.star_count:
         sourcerank += round(math.log(project_info.star_count)/2)
@@ -656,7 +671,15 @@ def calc_sourcerank(project_info: Dict):
     # Minus if issues not activated or repo archived
 
     # TODO: Closed/Open Issue count, e.g. https://isitmaintained.com/project/ml-tooling/ml-workspace
+
+    # TODO: from github api:
+    # isArchived: -1
+    # isDisabled: -1
+    # hasIssuesEnabled: -1
+    # pullRequests
+
     return sourcerank
+
 
 def calc_sourcerank_placing(projects: list):
     sourcerank_placing = {}
@@ -758,7 +781,7 @@ def prepare_configuration(config: dict) -> OrderedDict:
         config.project_new_months = 6
 
     if "min_sourcerank" not in config:
-        config.min_sourcerank = 5
+        config.min_sourcerank = 10
 
     if "min_stars" not in config:
         config.min_stars = 100
@@ -914,6 +937,12 @@ def collect_projects_info(projects: list, categories: OrderedDict, configuration
             # set update at if created at is available
             project_info.updated_at = project_info.created_at
 
+        # Calculate an improved source rank metric
+        adapted_sourcerank = calc_sourcerank(project_info)
+        if not project_info.sourcerank or project_info.sourcerank < adapted_sourcerank:
+            # Use the rank that is higher
+            project_info.sourcerank = adapted_sourcerank
+
         # set the show flag for every project, if not shown it will be moved to the More section
         apply_filters(project_info, configuration)
 
@@ -922,12 +951,6 @@ def collect_projects_info(projects: list, categories: OrderedDict, configuration
 
         # Check and update the project category
         update_project_category(project_info, categories)
-
-        # Calculate an improved source rank metric
-        adapted_sourcerank = calc_sourcerank(project_info)
-        if not project_info.sourcerank or project_info.sourcerank < adapted_sourcerank:
-            # Use the rank that is higher 
-            project_info.sourcerank = adapted_sourcerank
 
         projects_processed.append(project_info.to_dict())
 

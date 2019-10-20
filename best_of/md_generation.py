@@ -195,7 +195,7 @@ def generate_pypi_details(project: Dict, configuration: Dict) -> str:
             metrics_md += " · "
         metrics_md += "📦 " + \
             str(utils.simplify_number(project.pypi_dependent_project_count))
-    
+
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"
 
@@ -238,7 +238,10 @@ def generate_conda_details(project: Dict, configuration: Dict) -> str:
             metrics_md += " · "
         metrics_md += "📦 " + \
             str(utils.simplify_number(project.conda_dependent_project_count))
-    
+
+    if metrics_md:
+        metrics_md = " (" + metrics_md + ")"
+
     conda_url = ""
     if project.conda_url:
         conda_url = project.conda_url
@@ -315,13 +318,16 @@ def generate_npm_details(project: Dict, configuration: Dict) -> str:
             metrics_md += " · "
         metrics_md += "📥 " + \
             str(utils.simplify_number(project.npm_monthly_downloads)) + " / month"
-    
+
     if project.npm_dependent_project_count:
         if metrics_md:
             metrics_md += " · "
         metrics_md += "📦 " + \
-            str(utils.simplify_number(project.cnpm_dependent_project_count))
-    
+            str(utils.simplify_number(project.npm_dependent_project_count))
+
+    if metrics_md:
+        metrics_md = " (" + metrics_md + ")"
+
     npm_url = ""
     if project.npm_url:
         npm_url = project.npm_url
@@ -369,8 +375,9 @@ def generate_github_details(project: Dict, configuration: Dict) -> str:
     if project.open_issue_count and project.closed_issue_count:
         if metrics_md:
             metrics_md += " · "
-        metrics_md += "📋 " + str(int((project.open_issue_count / (project.closed_issue_count + project.open_issue_count)) * 100)) + "%"
-    
+        metrics_md += "📋 " + str(int((project.open_issue_count / (
+            project.closed_issue_count + project.open_issue_count)) * 100)) + "%"
+
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"
 
