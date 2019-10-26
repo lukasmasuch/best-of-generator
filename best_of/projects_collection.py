@@ -51,7 +51,7 @@ def update_package_via_libio(project_info: Dict, package_info: Dict, package_man
     if not project_info.license and package_info.normalized_licenses:
         if len(package_info.normalized_licenses) > 1:
             log.info("Package " + package_info.name +
-                     "has more than one license.")
+                     " has more than one license.")
         # Always take the first license
         project_info.license = package_info.normalized_licenses[0]
         if project_info.license.lower() == "other":
@@ -221,17 +221,33 @@ def update_via_dockerhub(project_info: Dict):
         return
 
     if not project_info.dockerhub_url:
-        project_info.dockerhub_url = "https://hub.docker.com/r/" + project_info.dockerhub_id
+        dockerhub_url_id = project_info.dockerhub_id
+        if "/" not in dockerhub_url_id:
+            # if official image, it needs a _/ appended to the id to be requested via url
+            dockerhub_url_id = "_/" + dockerhub_url_id
+
+        project_info.dockerhub_url = "https://hub.docker.com/r/" + dockerhub_url_id
 
     try:
+        dockerhub_url_id = project_info.dockerhub_id
+        if "/" not in dockerhub_url_id:
+            # if official image, it needs a library/ appended to the id to be requested via url
+            dockerhub_url_id = "library/" + dockerhub_url_id
+
         request = requests.get(
-            'https://hub.docker.com/v2/repositories/' + project_info.dockerhub_id)
+            'https://hub.docker.com/v2/repositories/' + dockerhub_url_id)
         if request.status_code != 200:
             log.info("Unable to find image via dockerhub api: " +
                      project_info.dockerhub_id + " (" + str(request.status_code) + ")")
             return
         dockerhub_info = Dict(request.json())
     except Exception as ex:
+        log.info("Failed to request docker image via dockerhub api: " +
+                 project_info.dockerhub_id, exc_info=ex)
+        return
+
+    if not dockerhub_info.name:
+            # Check if name exist -> if not, request most likely failed
         log.info("Failed to request docker image via dockerhub api: " +
                  project_info.dockerhub_id, exc_info=ex)
         return
@@ -263,8 +279,8 @@ def update_via_dockerhub(project_info: Dict):
                 project_info.monthly_downloads = 0
 
             # monthly downloads = total downloads to total month
-            project_info.monthly_downloads += int(project_info.dockerhub_pulls / int(
-                utils.diff_month(datetime.now(), project_info.created_at)))
+            project_info.monthly_downloads += int(project_info.dockerhub_pulls / max(1, int(
+                utils.diff_month(datetime.now(), project_info.created_at))))
 
     if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and dockerhub_info.description:
         description = utils.process_description(dockerhub_info.description)
@@ -360,9 +376,6 @@ query($owner: String!, $repo: String!) {
     pullRequests {
       totalCount
     }
-    releases {
-      totalCount
-    }
     repositoryTopics(first: 100) {
       nodes {
         topic {
@@ -380,6 +393,20 @@ query($owner: String!, $repo: String!) {
       ... on Commit {
         history {
           totalCount
+        }
+      }
+    }
+    releases(first: 100, orderBy: {field:CREATED_AT, direction:DESC}) {
+      nodes {
+        createdAt
+        publishedAt
+        tagName
+        isDraft
+        isPrerelease
+        releaseAssets(first: 100) {
+          nodes {
+            downloadCount
+          }
         }
       }
     }
@@ -428,6 +455,7 @@ query($owner: String!, $repo: String!) {
         except Exception as ex:
             log.warning("Failed to parse timestamp: " +
                         str(github_info.createdAt), exc_info=ex)
+
     # pushed_at is the last github push, updated_at is the last sync?
     if github_info.pushedAt:
         try:
@@ -475,6 +503,59 @@ query($owner: String!, $repo: String!) {
 
     if github_info.commits and github_info.commits.history and github_info.commits.history.totalCount:
         project_info.commit_count = int(github_info.commits.history.totalCount)
+
+    if github_info.releases and github_info.releases.nodes:
+        release_count = 0
+        first_release_date = None
+        total_downloads = 0
+        for release in github_info.releases.nodes:
+            try:
+                release_count += 1
+                is_stable = True
+                if release.isDraft or release.isPrerelease:
+                    is_stable = False
+
+                if release.publishedAt:
+                    release_date = parse(str(release.publishedAt))
+                    if not first_release_date:
+                        first_release_date = release_date
+                    if first_release_date > release_date:
+                        first_release_date = release_date
+
+                    if is_stable and release.tagName:
+                        if not project_info.latest_stable_release_published_at or project_info.latest_stable_release_published_at < release_date:
+                            project_info.latest_stable_release_published_at = release_date
+                            version = str(release.tagName)
+                            if version.startswith("v"):
+                                # TODO also replace next letter if not a number?
+                                version = version.replace("v", "").strip()
+                            project_info.latest_stable_release_number = version
+
+                if release.releaseAssets and release.releaseAssets.nodes:
+                    for release_artifact in release.releaseAssets.nodes:
+                        if release_artifact.downloadCount:
+                            total_downloads += int(release_artifact.downloadCount)
+            except Exception as ex:
+                log.warning(
+                    "Failed to parse github release info.", exc_info=ex)
+
+        if total_downloads:
+            project_info.github_release_downloads = total_downloads
+
+            # Add to monthly downloads
+            if not project_info.monthly_downloads:
+                project_info.monthly_downloads = 0
+
+            # monthly downloads = total downloads to total month
+            project_info.monthly_downloads += int(total_downloads / max(1, int(
+                utils.diff_month(datetime.now(), first_release_date))))
+
+        if release_count:
+            if not project_info.release_count:
+                project_info.release_count = release_count
+            elif int(project_info.release_count) < release_count:
+                # always use the highest number
+                project_info.release_count = release_count
 
     if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and github_info.description:
         description = utils.process_description(github_info.description)

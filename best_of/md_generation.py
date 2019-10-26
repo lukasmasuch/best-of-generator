@@ -372,6 +372,12 @@ def generate_github_details(project: Dict, configuration: Dict) -> str:
             metrics_md += " · "
         metrics_md += "🔀 " + str(utils.simplify_number(project.fork_count))
 
+    if project.github_release_downloads:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "📥 " + \
+            str(utils.simplify_number(project.github_release_downloads))
+
     if project.open_issue_count and project.closed_issue_count:
         if metrics_md:
             metrics_md += " · "
