@@ -11,6 +11,7 @@ import numpy as np
 import pypistats
 import requests
 from addict import Dict
+from bs4 import BeautifulSoup
 from dateutil.parser import parse
 from pybraries.search import Search
 from tqdm import tqdm
@@ -155,6 +156,12 @@ def update_via_conda(project_info: Dict):
     if not project_info.conda_id:
         return
 
+    if "/" in project_info.conda_id:
+        # Package from different conda channel (not anaconda) 
+        # Cannot be requested by libraries.io
+        project_info.conda_url = "https://anaconda.org/" + project_info.conda_id
+        return
+
     search = Search()
     conda_info = search.project(
         manager="conda", package=quote(project_info.conda_id, safe=""))
@@ -193,6 +200,7 @@ def update_via_npm(project_info: Dict):
     try:
         request = requests.get(
             'https://api.npmjs.org/downloads/point/last-month/' + quote(project_info.npm_id, safe=""))
+        request.text
         if request.status_code != 200:
             log.info("Unable to find package via npm api: " +
                      project_info.npm_id + "(" + str(request.status_code) + ")")
@@ -320,6 +328,53 @@ def update_via_pypi(project_info: Dict):
             project_info.pypi_monthly_downloads)
     except Exception:
         pass
+
+
+def update_via_maven(project_info: Dict):
+    if not project_info.maven_id:
+        return
+
+    search = Search()
+    maven_info = search.project(
+        manager="maven", package=quote(project_info.maven_id, safe=""))
+
+    if not maven_info:
+        log.info("Unable to find maven package: " + project_info.maven_id)
+        return
+
+    maven_info = Dict(maven_info)
+
+    if not project_info.maven_url:
+        project_info.maven_url = "https://search.maven.org/artifact/" + project_info.maven_id.replace(":", "/")
+
+    update_package_via_libio(project_info, maven_info, "maven")
+
+
+def get_repo_deps_via_github(github_id: str) -> int:
+    try:
+        request = requests.get('https://github.com/' +
+                               github_id + '/network/dependents')
+        if request.status_code != 200:
+            log.info("Unable to find repo dependets via github api: " +
+                     github_id + "(" + str(request.status_code) + ")")
+            return 0
+        repo_deps = 0
+        soup = BeautifulSoup(request.text, 'html.parser')
+        repo_deps_str = soup.find(string=re.compile("[0-9,]+\s+Repositories"))
+        if repo_deps_str:
+            count_search = re.search('([0-9,]+)', repo_deps_str, re.IGNORECASE)
+            if count_search:
+                repo_deps += int(count_search.group(1).replace(",", ""))
+        pkg_deps_str = soup.find(string=re.compile("[0-9,]+\s+Packages"))
+        if pkg_deps_str:
+            count_search = re.search('([0-9,]+)', pkg_deps_str, re.IGNORECASE)
+            if count_search:
+                repo_deps += int(count_search.group(1).replace(",", ""))
+        return repo_deps
+    except Exception as ex:
+        log.info("Unable to find repo dependets via github api: " +
+                 github_id, exc_info=ex)
+        return 0
 
 
 def update_via_github_api(project_info: Dict):
@@ -562,6 +617,16 @@ query($owner: String!, $repo: String!) {
         if description:
             project_info.description = description
 
+    # Get dependets count
+    dependent_project_count = get_repo_deps_via_github(project_info.github_id)
+    if dependent_project_count:
+        if not project_info.dependent_project_count:
+            project_info.dependent_project_count = 0
+
+        # TODO: really add this or use the highest dependents count
+        project_info.dependent_project_count += dependent_project_count
+        project_info.github_dependent_project_count = dependent_project_count
+
 
 def update_repo_via_libio(project_info: Dict):
     if not project_info.github_id:
@@ -666,6 +731,9 @@ def update_repo_via_libio(project_info: Dict):
 
 
 def update_via_github(project_info: Dict):
+    if not project_info.github_id:
+        return
+
     update_via_github_api(project_info)
     update_repo_via_libio(project_info)
 
@@ -997,7 +1065,7 @@ def apply_filters(project_info: Dict, configuration: Dict):
             project_info.show = False
 
 
-def collect_projects_info(projects: list, categories: OrderedDict, configuration: Dict):
+def collect_projects_info(projects: list, categories: OrderedDict, config: Dict):
     projects_processed = []
     unique_projects = set()
     for project in tqdm(projects):
@@ -1012,6 +1080,7 @@ def collect_projects_info(projects: list, categories: OrderedDict, configuration
         update_via_pypi(project_info)
         update_via_conda(project_info)
         update_via_npm(project_info)
+        update_via_maven(project_info)
         update_via_dockerhub(project_info)
 
         if not project_info.updated_at and project_info.created_at:
@@ -1025,7 +1094,7 @@ def collect_projects_info(projects: list, categories: OrderedDict, configuration
             project_info.sourcerank = adapted_sourcerank
 
         # set the show flag for every project, if not shown it will be moved to the More section
-        apply_filters(project_info, configuration)
+        apply_filters(project_info, config)
 
         # make sure that all defined values (but not category) are guaranteed to be used
         project_info.update(project)
@@ -1035,7 +1104,7 @@ def collect_projects_info(projects: list, categories: OrderedDict, configuration
 
         projects_processed.append(project_info.to_dict())
 
-    projects_processed = sort_projects(projects_processed, configuration)
+    projects_processed = sort_projects(projects_processed, config)
     calc_sourcerank_placing(projects_processed)
 
     return projects_processed
