@@ -157,7 +157,7 @@ def update_via_conda(project_info: Dict):
         return
 
     if "/" in project_info.conda_id:
-        # Package from different conda channel (not anaconda) 
+        # Package from different conda channel (not anaconda)
         # Cannot be requested by libraries.io
         project_info.conda_url = "https://anaconda.org/" + project_info.conda_id
         return
@@ -345,7 +345,8 @@ def update_via_maven(project_info: Dict):
     maven_info = Dict(maven_info)
 
     if not project_info.maven_url:
-        project_info.maven_url = "https://search.maven.org/artifact/" + project_info.maven_id.replace(":", "/")
+        project_info.maven_url = "https://search.maven.org/artifact/" + \
+            project_info.maven_id.replace(":", "/")
 
     update_package_via_libio(project_info, maven_info, "maven")
 
@@ -375,6 +376,34 @@ def get_repo_deps_via_github(github_id: str) -> int:
         log.info("Unable to find repo dependets via github api: " +
                  github_id, exc_info=ex)
         return 0
+
+
+def get_contributors_via_github_api(github_id: str, github_api_token: str) -> int or None:
+    if not github_id or not github_api_token:
+        return None
+
+    try:
+        request = requests.get('https://api.github.com/repos/' + github_id + '/contributors?page=1&per_page=1&anon=True',
+                               headers={"Authorization": "token " + github_api_token})
+        if request.status_code != 200:
+            log.info("Unable to find repo contributors via github api: " +
+                     github_id + "(" + str(request.status_code) + ")")
+            return None
+
+        if "Link" not in request.headers or not request.headers['Link']:
+            return None
+
+        link_header = request.headers['Link']
+
+        contributor_count = 0
+        for found_group in re.findall('\?page=([0-9]+)', link_header, re.IGNORECASE):
+            if contributor_count < int(found_group):
+                contributor_count = int(found_group)
+        return contributor_count
+    except Exception as ex:
+        log.info("Unable to find repo dependets via github api: " +
+                 github_id, exc_info=ex)
+        return None
 
 
 def update_via_github_api(project_info: Dict):
@@ -626,6 +655,16 @@ query($owner: String!, $repo: String!) {
         # TODO: really add this or use the highest dependents count
         project_info.dependent_project_count += dependent_project_count
         project_info.github_dependent_project_count = dependent_project_count
+
+    # Get contributor count via github api 3
+    contributor_count = get_contributors_via_github_api(
+        project_info.github_id, github_api_token)
+    if contributor_count:
+        if not project_info.contributor_count:
+            project_info.contributor_count = contributor_count
+        elif int(project_info.contributor_count) < contributor_count:
+            # always use the highest number
+            project_info.contributor_count = contributor_count
 
 
 def update_repo_via_libio(project_info: Dict):
