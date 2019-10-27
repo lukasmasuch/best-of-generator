@@ -246,18 +246,58 @@ def generate_conda_details(project: Dict, configuration: Dict) -> str:
     if project.conda_url:
         conda_url = project.conda_url
 
+    conda_package = project.conda_id
+    conda_channel = "anaconda"
+    if "/" in project.conda_id:
+        # different channel
+        conda_channel = project.conda_id.split("/")[0]
+        conda_package = project.conda_id.split("/")[1]
+
     # only show : if details are available
     seperator = "" if not configuration.generate_badges and not configuration.generate_install_hints else ":"
 
     details_md = "- **[Conda](" + conda_url + ")**" + \
         metrics_md + seperator + "\n"
     if configuration.generate_badges:
-        details_md += "![Conda Version](https://img.shields.io/conda/v/anaconda/{conda_id}?style=social) "
-        details_md += "![Conda Downloads](https://img.shields.io/conda/dn/anaconda/{conda_id}?style=social) "
-        details_md += "![Supported Platforms](https://img.shields.io/conda/pn/anaconda/{conda_id}?color=informational) "
+        details_md += "![Conda Version](https://img.shields.io/conda/v/{conda_channel}/{conda_package}?style=social) "
+        details_md += "![Conda Downloads](https://img.shields.io/conda/dn/{conda_channel}/{conda_package}?style=social) "
+        details_md += "![Supported Platforms](https://img.shields.io/conda/pn/{conda_channel}/{conda_package}?color=informational) "
     if configuration.generate_install_hints:
-        details_md += "\n\t```\n\tconda install -c anaconda {conda_id}\n\t```\n"
-    return details_md.format(conda_id=conda_id)
+        details_md += "\n\t```\n\tconda install -c {conda_channel} {conda_package}\n\t```\n"
+    return details_md.format(conda_channel=conda_channel, conda_package=conda_package)
+
+
+def generate_maven_details(project: Dict, configuration: Dict) -> str:
+    maven_id = project.maven_id
+    if not maven_id or ":" not in maven_id:
+        return ""
+
+    metrics_md = ""
+    if project.maven_dependent_project_count:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "📦 " + \
+            str(utils.simplify_number(project.maven_dependent_project_count))
+
+    if metrics_md:
+        metrics_md = " (" + metrics_md + ")"
+
+    maven_url = ""
+    if project.maven_url:
+        maven_url = project.maven_url
+
+    # only show : if details are available
+    seperator = "" if not configuration.generate_badges and not configuration.generate_install_hints else ":"
+
+    details_md = "- **[Maven](" + maven_url + ")**" + \
+        metrics_md + seperator + "\n"
+    if configuration.generate_badges:
+        pass
+    if configuration.generate_install_hints:
+        details_md += "\n\t```\n\t<dependency>\n\t\t<groupId>{maven_group_id}</groupId>\n\t\t<artifactId>{maven_artifact_id}</artifactId>\n\t\t<version>[VERSION]</version>\n\t</dependency>\n\t```\n"
+    maven_group_id = maven_id.split(":")[0]
+    maven_artifact_id = maven_id.split(":")[1]
+    return details_md.format(maven_group_id=maven_group_id, maven_artifact_id=maven_artifact_id)
 
 
 def generate_dockerhub_details(project: Dict, configuration: Dict) -> str:
@@ -378,6 +418,12 @@ def generate_github_details(project: Dict, configuration: Dict) -> str:
         metrics_md += "📥 " + \
             str(utils.simplify_number(project.github_release_downloads))
 
+    if project.github_dependent_project_count:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "📦 " + \
+            str(utils.simplify_number(project.github_dependent_project_count))
+
     if project.open_issue_count and project.closed_issue_count:
         if metrics_md:
             metrics_md += " · "
@@ -442,6 +488,9 @@ def generate_project_body(project: Dict, configuration: Dict):
 
     if project.dockerhub_id:
         body_md += generate_dockerhub_details(project, configuration)
+
+    if project.maven_id:
+        body_md += generate_maven_details(project, configuration)
 
     if not body_md:
         # show message if no information is available
