@@ -535,6 +535,10 @@ def generate_project_md(project: Dict, configuration: Dict, labels: list):
 def generate_category_md(category: Dict, configuration: Dict, labels: list, title_md_prefix="##"):
     category_md = ""
 
+    if not category.projects and not category.hidden_projects:
+        # Do not show category
+        return category_md
+
     category_md += title_md_prefix + " " + category.title + "\n\n"
     category_md += '<a href="#contents"><img align="right" width="15" height="15" src="https://i.ibb.co/2PS8bhR/up-arrow.png" alt="Back to top"></a>\n\n'
 
