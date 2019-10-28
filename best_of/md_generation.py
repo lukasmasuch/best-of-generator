@@ -566,7 +566,7 @@ def generate_legend(configuration: Dict, title_md_prefix="##"):
     legend_md = title_md_prefix + " Explanation\n"
     # Score that various project-quality metrics
     # score for a package based on a number of metrics
-    legend_md += "- 🥇🥈🥉 [SourceRank](https://docs.libraries.io/overview.html#sourcerank): Combined project-quality score\n"
+    legend_md += "- 🥇🥈🥉 Combined project-quality score\n"
     legend_md += "- ⭐️ Star count from Github\n"
     legend_md += "- 🐣 New project _(less than " + \
         str(configuration.project_new_months) + " month old)_\n"
@@ -601,6 +601,10 @@ def generate_toc(categories: OrderedDict):
             project_count += len(categories[category]["projects"])
         if "hidden_projects" in categories[category] and categories[category]["hidden_projects"]:
             project_count += len(categories[category]["hidden_projects"])
+
+        if not project_count:
+            # only add if more than 0 projects
+            continue
 
         toc_md += "- [{title}]({url}) _{project_count} projects_\n".format(
             title=categories[category]["title"],
