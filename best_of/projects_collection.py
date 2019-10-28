@@ -147,9 +147,7 @@ def update_package_via_libio(project_info: Dict, package_info: Dict, package_man
                      "_dependent_project_count"] = dependent_project_count
 
     if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and package_info.description:
-        description = utils.process_description(package_info.description)
-        if description:
-            project_info.description = description
+        project_info.description = package_info.description
 
 
 def update_via_conda(project_info: Dict):
@@ -291,9 +289,7 @@ def update_via_dockerhub(project_info: Dict):
                 utils.diff_month(datetime.now(), project_info.created_at))))
 
     if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and dockerhub_info.description:
-        description = utils.process_description(dockerhub_info.description)
-        if description:
-            project_info.description = description
+        project_info.description = dockerhub_info.description
 
 
 def update_via_pypi(project_info: Dict):
@@ -642,9 +638,7 @@ query($owner: String!, $repo: String!) {
                 project_info.release_count = release_count
 
     if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and github_info.description:
-        description = utils.process_description(github_info.description)
-        if description:
-            project_info.description = description
+        project_info.description = github_info.description
 
     # Get dependets count
     dependent_project_count = get_repo_deps_via_github(project_info.github_id)
@@ -764,9 +758,7 @@ def update_repo_via_libio(project_info: Dict):
             project_info.star_count = star_count
 
     if (not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH) and github_info.description:
-        description = utils.process_description(github_info.description)
-        if description:
-            project_info.description = description
+        project_info.description = github_info.description
 
 
 def update_via_github(project_info: Dict):
@@ -864,7 +856,7 @@ def calc_sourcerank(project_info: Dict):
     # isArchived: -1
     # isDisabled: -1
     # hasIssuesEnabled: -1
-    # pullRequests
+    # TODO: pullRequests
 
     return sourcerank
 
@@ -1137,6 +1129,11 @@ def collect_projects_info(projects: list, categories: OrderedDict, config: Dict)
 
         # make sure that all defined values (but not category) are guaranteed to be used
         project_info.update(project)
+
+        if project_info.description:
+            # Process description
+            project_info.description = utils.process_description(
+                project_info.description)
 
         # Check and update the project category
         update_project_category(project_info, categories)
