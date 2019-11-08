@@ -430,8 +430,15 @@ def generate_github_details(project: Dict, configuration: Dict) -> str:
     if project.open_issue_count and project.closed_issue_count:
         if metrics_md:
             metrics_md += " · "
-        metrics_md += "📋 " + str(int((project.open_issue_count / (
-            project.closed_issue_count + project.open_issue_count)) * 100)) + "%"
+        total_issues = project.closed_issue_count + project.open_issue_count
+
+        metrics_md += "📋 " + str(utils.simplify_number(total_issues)) + " - " + str(int((project.open_issue_count / (
+            project.closed_issue_count + project.open_issue_count)) * 100)) + "% open"
+
+    if project.last_commit_pushed_at:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "⏱️ " + str(project.last_commit_pushed_at.strftime('%d.%m.%Y'))
 
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"
@@ -580,7 +587,8 @@ def generate_legend(configuration: Dict, title_md_prefix="##"):
     legend_md += "- ❗️ Warning _(e.g. missing/risky license)_\n"
     legend_md += "- 👨‍💻 Contributors count from Github\n"
     legend_md += "- 🔀 Fork count from Github\n"
-    legend_md += "- 📋 Percentage of open issues from Github\n"
+    legend_md += "- 📋 Issue count from Github\n"
+    legend_md += "- ⏱️ Last update timestamp on package manager\n"
     legend_md += "- 📥 Download count from package manager\n"
     legend_md += "- 📦 Number of dependent projects\n"
     # legend_md += "- 📈 Trending project\n"
