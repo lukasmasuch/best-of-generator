@@ -198,6 +198,12 @@ def generate_pypi_details(project: Dict, configuration: Dict) -> str:
             metrics_md += " · "
         metrics_md += "📦 " + \
             str(utils.simplify_number(project.pypi_dependent_project_count))
+    
+    if project.pypi_latest_release_published_at:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "⏱️ " + \
+            str(project.pypi_latest_release_published_at.strftime('%d.%m.%Y'))
 
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"
@@ -242,6 +248,12 @@ def generate_conda_details(project: Dict, configuration: Dict) -> str:
         metrics_md += "📦 " + \
             str(utils.simplify_number(project.conda_dependent_project_count))
 
+    if project.conda_latest_release_published_at:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "⏱️ " + \
+            str(project.conda_latest_release_published_at.strftime('%d.%m.%Y'))
+
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"
 
@@ -281,6 +293,12 @@ def generate_maven_details(project: Dict, configuration: Dict) -> str:
             metrics_md += " · "
         metrics_md += "📦 " + \
             str(utils.simplify_number(project.maven_dependent_project_count))
+
+    if project.maven_latest_release_published_at:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "⏱️ " + \
+            str(project.maven_latest_release_published_at.strftime('%d.%m.%Y'))
 
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"
@@ -367,6 +385,12 @@ def generate_npm_details(project: Dict, configuration: Dict) -> str:
             metrics_md += " · "
         metrics_md += "📦 " + \
             str(utils.simplify_number(project.npm_dependent_project_count))
+
+    if project.npm_latest_release_published_at:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "⏱️ " + \
+            str(project.npm_latest_release_published_at.strftime('%d.%m.%Y'))
 
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"
