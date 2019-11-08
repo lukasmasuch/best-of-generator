@@ -16,16 +16,16 @@ log = logging.getLogger(__name__)
 def generate_metrics_info(project: Dict, configuration: Dict) -> str:
     metrics_md = ""
 
-    if project.sourcerank:
+    if project.projectrank:
         placing_emoji = "🥉"
-        if project.sourcerank_placing:
-            if project.sourcerank_placing == 1:
+        if project.projectrank_placing:
+            if project.projectrank_placing == 1:
                 placing_emoji = "🥇"
-            elif project.sourcerank_placing == 2:
+            elif project.projectrank_placing == 2:
                 placing_emoji = "🥈"
 
         # TODO: add spacing? " " ?
-        metrics_md += placing_emoji + str(project.sourcerank)
+        metrics_md += placing_emoji + str(project.projectrank)
 
     if project.star_count:
         if metrics_md:
@@ -198,7 +198,7 @@ def generate_pypi_details(project: Dict, configuration: Dict) -> str:
             metrics_md += " · "
         metrics_md += "📦 " + \
             str(utils.simplify_number(project.pypi_dependent_project_count))
-    
+
     if project.pypi_latest_release_published_at:
         if metrics_md:
             metrics_md += " · "
@@ -338,6 +338,12 @@ def generate_dockerhub_details(project: Dict, configuration: Dict) -> str:
             metrics_md += " · "
         metrics_md += "⭐ " + \
             str(utils.simplify_number(project.dockerhub_stars))
+
+    if project.dockerhub_latest_release_published_at:
+        if metrics_md:
+            metrics_md += " · "
+        metrics_md += "⏱️ " + \
+            str(project.dockerhub_latest_release_published_at.strftime('%d.%m.%Y'))
 
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"

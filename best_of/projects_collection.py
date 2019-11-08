@@ -66,6 +66,12 @@ def update_package_via_libio(project_info: Dict, package_info: Dict, package_man
             elif project_info.updated_at < updated_at:
                 # always use the latest available date
                 project_info.updated_at = updated_at
+
+            # Set package manager specific publish date
+            release_key = package_manager + "_latest_release_published_at"
+            if release_key not in project_info or project_info[release_key] < updated_at:
+                # always use the latest available date
+                project_info[release_key] = updated_at
         except Exception as ex:
             log.warning("Failed to parse timestamp: " +
                         str(package_info.latest_release_published_at), exc_info=ex)
@@ -121,12 +127,12 @@ def update_package_via_libio(project_info: Dict, package_info: Dict, package_man
             project_info.fork_count = fork_count
 
     if package_info.rank:
-        sourcerank = int(package_info.rank)
-        if not project_info.sourcerank:
-            project_info.sourcerank = sourcerank
-        elif int(project_info.sourcerank) < sourcerank:
+        projectrank = int(package_info.rank)
+        if not project_info.projectrank:
+            project_info.projectrank = projectrank
+        elif int(project_info.projectrank) < projectrank:
             # always use the highest number
-            project_info.sourcerank = sourcerank
+            project_info.projectrank = projectrank
 
     if package_info.dependent_repos_count or package_info.dependents_count:
         dependent_project_count = 0
@@ -202,7 +208,7 @@ def update_via_npm(project_info: Dict):
         request.text
         if request.status_code != 200:
             log.info("Unable to find package via npm api: " +
-                     project_info.npm_id + "(" + str(request.status_code) + ")")
+                     project_info.npm_id + " (" + str(request.status_code) + ")")
             return
         npm_download_info = Dict(request.json())
         if npm_download_info.downloads:
@@ -267,6 +273,8 @@ def update_via_dockerhub(project_info: Dict):
             elif project_info.updated_at < updated_at:
                 # always use the latest available date
                 project_info.updated_at = updated_at
+
+            project_info.dockerhub_latest_release_published_at = updated_at
         except Exception as ex:
             log.warning("Failed to parse timestamp: " +
                         str(project_info.last_updated), exc_info=ex)
@@ -356,7 +364,7 @@ def get_repo_deps_via_github(github_id: str) -> int:
                                github_id + '/network/dependents')
         if request.status_code != 200:
             log.info("Unable to find repo dependets via github api: " +
-                     github_id + "(" + str(request.status_code) + ")")
+                     github_id + " (" + str(request.status_code) + ")")
             return 0
         repo_deps = 0
         soup = BeautifulSoup(request.text, 'html.parser')
@@ -386,7 +394,7 @@ def get_contributors_via_github_api(github_id: str, github_api_token: str) -> in
                                headers={"Authorization": "token " + github_api_token})
         if request.status_code != 200:
             log.info("Unable to find repo contributors via github api: " +
-                     github_id + "(" + str(request.status_code) + ")")
+                     github_id + " (" + str(request.status_code) + ")")
             return None
 
         if "Link" not in request.headers or not request.headers['Link']:
@@ -742,12 +750,12 @@ def update_repo_via_libio(project_info: Dict):
                         str(github_info.pushed_at), exc_info=ex)
 
     if github_info.rank:
-        sourcerank = int(github_info.rank)
-        if not project_info.sourcerank:
-            project_info.sourcerank = sourcerank
-        elif int(project_info.sourcerank) < sourcerank:
+        projectrank = int(github_info.rank)
+        if not project_info.projectrank:
+            project_info.projectrank = projectrank
+        elif int(project_info.projectrank) < projectrank:
             # always use the highest number
-            project_info.sourcerank = sourcerank
+            project_info.projectrank = projectrank
 
     if github_info.forks_count:
         fork_count = int(github_info.forks_count)
@@ -793,84 +801,84 @@ def update_via_github(project_info: Dict):
     update_repo_via_libio(project_info)
 
 
-def calc_sourcerank(project_info: Dict):
-    sourcerank = 0
+def calc_projectrank(project_info: Dict):
+    projectrank = 0
 
     # Basic info present?
     if project_info.homepage and project_info.description:
         # TODO: check for keywords
         # TODO: check hasX from libio
-        sourcerank += 1
+        projectrank += 1
 
     # Source repository present?
     if project_info.github_url:
         # For now only check for github
-        sourcerank += 1
+        projectrank += 1
 
     # TODO: Readme present?
 
     # License present?
     if project_info.license:
-        sourcerank += 1
+        projectrank += 1
         # Custom addition: Permissive & common license
         project_license_metadata = get_license(project_info.license)
         if project_license_metadata and "warning" in project_license_metadata and project_license_metadata["warning"] is False:
-            sourcerank += 1
+            projectrank += 1
 
     # Has multiple versions?
     if project_info.release_count and project_info.release_count > 1:
-        sourcerank += 1
+        projectrank += 1
 
     # Follows SemVer?
     if project_info.latest_stable_release_number and SEMVER_VALIDATION.match(project_info.latest_stable_release_number):
-        sourcerank += 1
+        projectrank += 1
 
     # Recent release? within 6 month
     if project_info.latest_stable_release_published_at:
         month_since_latest_release = utils.diff_month(
             datetime.now(), project_info.latest_stable_release_published_at)
         if month_since_latest_release < 6:
-            sourcerank += 1
+            projectrank += 1
 
     # Custom addition: Check if repo was updated within the last 3 month
     if project_info.updated_at:
         project_inactive_month = utils.diff_month(
             datetime.now(), project_info.updated_at)
         if project_inactive_month < 3:
-            sourcerank += 1
+            projectrank += 1
 
     # Not brand new?
     if project_info.created_at:
         project_age = utils.diff_month(datetime.now(), project_info.created_at)
         if project_age >= 6:
-            sourcerank += 1
+            projectrank += 1
 
     # 1.0.0 or greater? - Ignored for now
     # TODO save last version number and last version date
 
     if project_info.dependent_project_count:
         # TODO: Difference between repos and packages?
-        sourcerank += round(math.log(project_info.dependent_project_count)/1.5)
+        projectrank += round(math.log(project_info.dependent_project_count)/1.5)
 
     # Stars  - Logarithmic scale
     if project_info.star_count:
-        sourcerank += round(math.log(project_info.star_count)/2)
+        projectrank += round(math.log(project_info.star_count)/2)
 
     # Contributors - Logarithmic scale
     if project_info.contributor_count:
-        sourcerank += round(math.log(project_info.contributor_count)/2) - 1
+        projectrank += round(math.log(project_info.contributor_count)/2) - 1
 
     # Custom addition: Forks - Logarithmic scale
     if project_info.fork_count:
-        sourcerank += round(math.log(project_info.fork_count)/2)
+        projectrank += round(math.log(project_info.fork_count)/2)
 
     # Custom addition: Monthly downloads - Logarithmic scale
     if project_info.monthly_downloads:
-        sourcerank += round(math.log(project_info.monthly_downloads)/2) - 1
+        projectrank += round(math.log(project_info.monthly_downloads)/2) - 1
 
     # Custom addition: Commit count - Logarithmic scale
     if project_info.commit_count:
-        sourcerank += round(math.log(project_info.commit_count)/2) - 1
+        projectrank += round(math.log(project_info.commit_count)/2) - 1
 
     # Minus if issues not activated or repo archived
 
@@ -882,43 +890,43 @@ def calc_sourcerank(project_info: Dict):
     # hasIssuesEnabled: -1
     # TODO: pullRequests
 
-    return sourcerank
+    return projectrank
 
 
-def calc_sourcerank_placing(projects: list):
-    sourcerank_placing = {}
-    # Collet all sourceranks
+def calc_projectrank_placing(projects: list):
+    projectrank_placing = {}
+    # Collet all projectranks
     for project in projects:
         project = Dict(project)
-        if not project.category or not project.sourcerank:
+        if not project.category or not project.projectrank:
             continue
 
-        if project.category not in sourcerank_placing:
-            sourcerank_placing[project.category] = []
+        if project.category not in projectrank_placing:
+            projectrank_placing[project.category] = []
 
-        sourcerank_placing[project.category].append(int(project.sourcerank))
+        projectrank_placing[project.category].append(int(project.projectrank))
 
-    # Calculate sourcerank placing
+    # Calculate projectrank placing
     for project in projects:
-        if "sourcerank" not in project or not project["sourcerank"]:
+        if "projectrank" not in project or not project["projectrank"]:
             continue
 
         if "category" not in project or not project["category"]:
             continue
 
         category = project["category"]
-        if category in sourcerank_placing:
+        if category in projectrank_placing:
             placing_1 = np.percentile(
-                np.sort(np.array(sourcerank_placing[category]))[::-1], 90)
+                np.sort(np.array(projectrank_placing[category]))[::-1], 90)
             placing_2 = np.percentile(
-                np.sort(np.array(sourcerank_placing[category]))[::-1], 60)
+                np.sort(np.array(projectrank_placing[category]))[::-1], 60)
 
-            if project["sourcerank"] >= placing_1:
-                project["sourcerank_placing"] = 1
-            elif project["sourcerank"] >= placing_2:
-                project["sourcerank_placing"] = 2
+            if project["projectrank"] >= placing_1:
+                project["projectrank_placing"] = 1
+            elif project["projectrank"] >= placing_2:
+                project["projectrank_placing"] = 2
             else:
-                project["sourcerank_placing"] = 3
+                project["projectrank_placing"] = 3
 
 
 def categorize_projects(projects: list, categories: OrderedDict):
@@ -984,8 +992,8 @@ def prepare_configuration(config: dict) -> OrderedDict:
     if "project_new_months" not in config:
         config.project_new_months = 6
 
-    if "min_sourcerank" not in config:
-        config.min_sourcerank = 10
+    if "min_projectrank" not in config:
+        config.min_projectrank = 10
 
     if "min_stars" not in config:
         config.min_stars = 100
@@ -1024,7 +1032,7 @@ def prepare_configuration(config: dict) -> OrderedDict:
         config.generate_legend = True
 
     if "sort_by" not in config:
-        config.sort_by = "sourcerank"
+        config.sort_by = "projectrank"
 
     if "allowed_licenses" not in config:
         config.allowed_licenses = []
@@ -1038,20 +1046,20 @@ def prepare_configuration(config: dict) -> OrderedDict:
 def sort_projects(projects: list, configuration: Dict):
     def sort_project_list(project):
         project = Dict(project)
-        sourcerank = 0
+        projectrank = 0
         star_count = 0
 
-        if project.sourcerank:
-            sourcerank = int(project.sourcerank)
+        if project.projectrank:
+            projectrank = int(project.projectrank)
 
         if project.star_count:
             star_count = int(project.star_count)
 
-        if not configuration.sort_by or configuration.sort_by == "sourcerank":
+        if not configuration.sort_by or configuration.sort_by == "projectrank":
             # this is also the default if nothing is set
-            return (sourcerank, star_count)
+            return (projectrank, star_count)
         elif configuration.sort_by == "star_count":
-            return (star_count, sourcerank)
+            return (star_count, projectrank)
 
     return sorted(projects, key=sort_project_list, reverse=True)
 
@@ -1063,18 +1071,14 @@ def apply_filters(project_info: Dict, configuration: Dict):
     if not project_info.name or not project_info.homepage or not project_info.description or len(project_info.description) < MIN_PROJECT_DESC_LENGTH:
         project_info.show = False
 
-    # Do not show if project sourcerank less than min_sourcerank
-    if configuration.min_sourcerank and project_info.sourcerank \
-            and int(project_info.sourcerank) < int(configuration.min_sourcerank):
+    # Do not show if project projectrank less than min_projectrank
+    if configuration.min_projectrank and project_info.projectrank \
+            and int(project_info.projectrank) < int(configuration.min_projectrank):
         project_info.show = False
 
     # Do not show if project stars less than min_stars
     if configuration.min_stars and project_info.star_count \
             and int(project_info.star_count) < int(configuration.min_stars):
-        project_info.show = False
-
-    # Do not show if license was not found
-    if not project_info.license and configuration.require_license:
         project_info.show = False
 
     # Check platform requires
@@ -1091,6 +1095,10 @@ def apply_filters(project_info: Dict, configuration: Dict):
         project_info.show = False
 
     if configuration.require_dockerhub and not project_info.dockerhub_url:
+        project_info.show = False
+
+    # Do not show if license was not found
+    if not project_info.license and configuration.require_license:
         project_info.show = False
 
     # Do not show if license is not in allowed_licenses
@@ -1147,11 +1155,11 @@ def collect_projects_info(projects: list, categories: OrderedDict, config: Dict)
             # set update at if created at is available
             project_info.updated_at = project_info.created_at
 
-        # Calculate an improved source rank metric
-        adapted_sourcerank = calc_sourcerank(project_info)
-        if not project_info.sourcerank or project_info.sourcerank < adapted_sourcerank:
+        # Calculate an improved project rank metric
+        adapted_projectrank = calc_projectrank(project_info)
+        if not project_info.projectrank or project_info.projectrank < adapted_projectrank:
             # Use the rank that is higher
-            project_info.sourcerank = adapted_sourcerank
+            project_info.projectrank = adapted_projectrank
 
         # set the show flag for every project, if not shown it will be moved to the More section
         apply_filters(project_info, config)
@@ -1170,6 +1178,6 @@ def collect_projects_info(projects: list, categories: OrderedDict, config: Dict)
         projects_processed.append(project_info.to_dict())
 
     projects_processed = sort_projects(projects_processed, config)
-    calc_sourcerank_placing(projects_processed)
+    calc_projectrank_placing(projects_processed)
 
     return projects_processed
