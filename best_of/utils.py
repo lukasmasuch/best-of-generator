@@ -35,8 +35,10 @@ def process_description(text: str, max_lenght=70) -> str:
     text = re.sub(":[a-zA-Z_]*:", "", text).strip()
 
     text = remove_special_chars(text).strip()
-    text = text.replace("\"", "")
-
+    text = text.replace('"', '')
+    text = text.replace('<', '')
+    text = text.replace('>', '')
+    
     if not text:
         return text
 
