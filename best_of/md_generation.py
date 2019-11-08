@@ -438,7 +438,8 @@ def generate_github_details(project: Dict, configuration: Dict) -> str:
     if project.last_commit_pushed_at:
         if metrics_md:
             metrics_md += " · "
-        metrics_md += "⏱️ " + str(project.last_commit_pushed_at.strftime('%d.%m.%Y'))
+        metrics_md += "⏱️ " + \
+            str(project.last_commit_pushed_at.strftime('%d.%m.%Y'))
 
     if metrics_md:
         metrics_md = " (" + metrics_md + ")"
@@ -569,7 +570,7 @@ def generate_category_md(category: Dict, configuration: Dict, labels: list, titl
             category_md += project_md + "\n"
         category_md += "</details>\n"
 
-    return category_md
+    return "<br>\n\n" + category_md
 
 
 def generate_legend(configuration: Dict, title_md_prefix="##"):
@@ -593,7 +594,7 @@ def generate_legend(configuration: Dict, title_md_prefix="##"):
     legend_md += "- 📦 Number of dependent projects\n"
     # legend_md += "- 📈 Trending project\n"
     # legend_md += "- 💲 Commercial project\n"
-    return legend_md
+    return legend_md + "\n"
 
 
 def process_md_link(text: str) -> str:
@@ -621,7 +622,7 @@ def generate_toc(categories: OrderedDict):
             title=categories[category]["title"],
             url=url,
             project_count=project_count)
-    return toc_md
+    return toc_md + "\n"
 
 
 def generate_md(categories: OrderedDict, configuration: Dict, labels: list):
@@ -636,14 +637,14 @@ def generate_md(categories: OrderedDict, configuration: Dict, labels: list):
                         os.path.abspath(configuration.markdown_header_file))
 
     if configuration.generate_toc:
-        full_markdown += generate_toc(categories) + "\n"
+        full_markdown += generate_toc(categories)
 
     if configuration.generate_legend:
-        full_markdown += generate_legend(configuration) + "\n"
+        full_markdown += generate_legend(configuration)
 
     for category in categories:
         full_markdown += generate_category_md(
-            categories[category], configuration, labels) + "\n\n"
+            categories[category], configuration, labels)
 
     if configuration.markdown_footer_file:
         if os.path.exists(configuration.markdown_footer_file):
