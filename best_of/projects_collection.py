@@ -13,7 +13,6 @@ import requests
 from addict import Dict
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
-from pybraries.search import Search
 from tqdm import tqdm
 
 from best_of import utils
@@ -160,6 +159,7 @@ def update_via_conda(project_info: Dict):
         project_info.conda_url = "https://anaconda.org/" + project_info.conda_id
         return
 
+    from pybraries.search import Search
     search = Search()
     conda_info = search.project(
         manager="conda", package=quote(project_info.conda_id, safe=""))
@@ -179,6 +179,7 @@ def update_via_npm(project_info: Dict):
     if not project_info.npm_id:
         return
 
+    from pybraries.search import Search
     search = Search()
     npm_info = search.project(
         manager="npm", package=quote(project_info.npm_id, safe=""))
@@ -296,6 +297,7 @@ def update_via_pypi(project_info: Dict):
     if not project_info.pypi_id:
         return
 
+    from pybraries.search import Search
     search = Search()
     pypi_info = search.project(
         manager="pypi", package=quote(project_info.pypi_id, safe=""))
@@ -330,6 +332,7 @@ def update_via_maven(project_info: Dict):
     if not project_info.maven_id:
         return
 
+    from pybraries.search import Search
     search = Search()
     maven_info = search.project(
         manager="maven", package=quote(project_info.maven_id, safe=""))
@@ -456,6 +459,13 @@ query($owner: String!, $repo: String!) {
     pullRequests {
       totalCount
     }
+    masterCommit: defaultBranchRef {
+        target {
+          ... on Commit {
+            committedDate
+          }
+        }
+    }
     repositoryTopics(first: 100) {
       nodes {
         topic {
@@ -548,6 +558,19 @@ query($owner: String!, $repo: String!) {
         except Exception as ex:
             log.warning("Failed to parse timestamp: " +
                         str(github_info.pushedAt), exc_info=ex)
+
+    if github_info.masterCommit and github_info.masterCommit.target and github_info.masterCommit.target.committedDate:
+        try:
+            last_commit_pushed_at = parse(
+                str(github_info.masterCommit.target.committedDate))
+            if not project_info.last_commit_pushed_at:
+                project_info.last_commit_pushed_at = last_commit_pushed_at
+            elif project_info.last_commit_pushed_at < last_commit_pushed_at:
+                # always use the latest available date
+                project_info.last_commit_pushed_at = last_commit_pushed_at
+        except Exception as ex:
+            log.warning("Failed to parse timestamp: " +
+                        str(github_info.target.committedDate), exc_info=ex)
 
     if github_info.forks and github_info.forks.totalCount:
         fork_count = int(github_info.forks.totalCount)
@@ -673,6 +696,7 @@ def update_repo_via_libio(project_info: Dict):
     owner = project_info.github_id.split('/')[0]
     repo = project_info.github_id.split('/')[1]
 
+    from pybraries.search import Search
     search = Search()
     github_info = search.repository(host="github", owner=owner, repo=repo)
 
@@ -1089,11 +1113,16 @@ def apply_filters(project_info: Dict, configuration: Dict):
             project_info.show = False
 
     # Do not show if project is dead
-    if project_info.updated_at:
+    project_inactive_month = None
+    if project_info.last_commit_pushed_at:
+        project_inactive_month = utils.diff_month(
+            datetime.now(), project_info.last_commit_pushed_at)
+    elif project_info.updated_at:
         project_inactive_month = utils.diff_month(
             datetime.now(), project_info.updated_at)
-        if configuration.project_dead_months and int(configuration.project_dead_months) < project_inactive_month:
-            project_info.show = False
+
+    if project_inactive_month and configuration.project_dead_months and int(configuration.project_dead_months) < project_inactive_month:
+        project_info.show = False
 
 
 def collect_projects_info(projects: list, categories: OrderedDict, config: Dict):

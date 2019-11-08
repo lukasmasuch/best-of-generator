@@ -39,7 +39,10 @@ def generate_metrics_info(project: Dict, configuration: Dict) -> str:
             datetime.now(), project.created_at)
 
     project_inactive_month = None
-    if project.updated_at:
+    if project.last_commit_pushed_at:
+        project_inactive_month = utils.diff_month(
+            datetime.now(), project.last_commit_pushed_at)
+    elif project.updated_at:
         project_inactive_month = utils.diff_month(
             datetime.now(), project.updated_at)
 
