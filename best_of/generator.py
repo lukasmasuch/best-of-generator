@@ -55,7 +55,7 @@ def generate_markdown(projects_yaml_path: str, libraries_api_key: str, github_ap
             projects_file_name = datetime.today().strftime('%Y-%m-%d') + "_projects.csv"
             projects_history_file = os.path.join(
                 config.projects_history_folder, projects_file_name)
-            pd.DataFrame(projects).to_csv(projects_history_file, sep=";")
+            pd.DataFrame(projects).to_csv(projects_history_file, sep=",")
 
         markdown = md_generation.generate_md(categories, config, labels)
 
