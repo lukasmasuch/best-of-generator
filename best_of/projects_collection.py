@@ -1170,7 +1170,7 @@ def collect_projects_info(projects: list, categories: OrderedDict, config: Dict)
         if project_info.description:
             # Process description
             project_info.description = utils.process_description(
-                project_info.description)
+                project_info.description, 120)
 
         # Check and update the project category
         update_project_category(project_info, categories)

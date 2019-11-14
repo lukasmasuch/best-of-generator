@@ -127,6 +127,7 @@ def generate_project_labels(project: Dict, labels: list) -> str:
 
 
 def generate_license_info(project: Dict, configuration: Dict) -> str:
+    license_length = 12
     license_md = ""
     if project.license:
         licenses_name = project.license
@@ -146,13 +147,15 @@ def generate_license_info(project: Dict, configuration: Dict) -> str:
 
         if licenses_warning:
             licenses_name = "❗️" + licenses_name
+        
+        license_length = len(licenses_name)
         # target="_blank"
         license_template = ' <code><a href="{url}">{text}</a></code>'
         license_md += license_template.format(
             url=licenses_url, text=licenses_name)
     else:
         license_md += ' <code>❗️Unlicensed</code>'
-    return license_md
+    return license_md, license_length
 
 
 def generate_links_list(project: Dict, configuration: Dict) -> str:
@@ -542,9 +545,10 @@ def generate_project_body(project: Dict, configuration: Dict):
 
 
 def generate_project_md(project: Dict, configuration: Dict, labels: list):
+    
     project_md = ""
     metrics_md = generate_metrics_info(project, configuration)
-    license_md = generate_license_info(project, configuration)
+    license_md, license_len = generate_license_info(project, configuration)
     labels_md = generate_project_labels(project, labels)
 
     if configuration.generate_link_shortcuts:
@@ -561,11 +565,18 @@ def generate_project_md(project: Dict, configuration: Dict, labels: list):
 
     body_md = generate_project_body(project, configuration)
 
+    # Dynamically calculate the max length of the description.
+    # The goal is that it fits into one row in most cases.
+    label_count = 0
+    if project.labels:
+        label_count = len(project.labels)
+    desc_length = max(60, 112 - len(project.name) - len(metrics_md) - license_len - (label_count * 3))
+    description = utils.process_description(project.description, desc_length)
     # target="_blank"
     project_md = '<details><summary><b><a href="{homepage}">{name}</a></b> {metrics}- {description}{metadata}</summary>{body}</details>'.format(
         homepage=project.homepage,
         name=project.name,
-        description=project.description,
+        description=description,
         metrics=metrics_md,
         metadata=metadata_md,
         body=body_md)
@@ -658,10 +669,34 @@ def generate_toc(categories: OrderedDict):
 def generate_md(categories: OrderedDict, configuration: Dict, labels: list):
     full_markdown = ""
 
+    project_count = 0
+    category_count = 0
+    stars_count = 0
+
+    for category_name in categories:
+        category = categories[category_name]
+        if category.projects or category.hidden_projects:
+            category_count += 1
+        
+        if category.projects:
+            for project in category.projects:
+                project_count += 1
+                if project.star_count:
+                    stars_count += project.star_count
+        
+        if category.hidden_projects:
+            for project in category.hidden_projects:
+                project_count += 1
+                if project.star_count:
+                    stars_count += project.star_count
+    
     if configuration.markdown_header_file:
         if os.path.exists(configuration.markdown_header_file):
             with open(configuration.markdown_header_file, 'r') as f:
-                full_markdown += str(f.read()) + "\n"
+                full_markdown += str(f.read()).format(
+                    project_count=utils.simplify_number(project_count), 
+                    category_count=utils.simplify_number(category_count), 
+                    stars_count=utils.simplify_number(stars_count)) + "\n"
         else:
             log.warning("The markdown header file does not exist: " +
                         os.path.abspath(configuration.markdown_header_file))
@@ -679,7 +714,10 @@ def generate_md(categories: OrderedDict, configuration: Dict, labels: list):
     if configuration.markdown_footer_file:
         if os.path.exists(configuration.markdown_footer_file):
             with open(configuration.markdown_footer_file, 'r') as f:
-                full_markdown += str(f.read())
+                full_markdown += str(f.read()).format(
+                    project_count=utils.simplify_number(project_count), 
+                    category_count=utils.simplify_number(category_count), 
+                    stars_count=utils.simplify_number(stars_count))
         else:
             log.warning("The markdown footer file does not exist: " +
                         os.path.abspath(configuration.markdown_footer_file))
