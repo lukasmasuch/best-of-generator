@@ -168,7 +168,7 @@ def update_via_conda(project_info: Dict):
     from pybraries.search import Search
     search = Search()
     conda_info = search.project(
-        manager="conda", package=quote(project_info.conda_id, safe=""))
+        platforms="conda", name=quote(project_info.conda_id, safe=""))
 
     if not conda_info:
         return
@@ -188,7 +188,7 @@ def update_via_npm(project_info: Dict):
     from pybraries.search import Search
     search = Search()
     npm_info = search.project(
-        manager="npm", package=quote(project_info.npm_id, safe=""))
+        platforms="npm", name=quote(project_info.npm_id, safe=""))
 
     if not npm_info:
         log.info("Unable to find npm package: " + project_info.npm_id)
@@ -308,7 +308,7 @@ def update_via_pypi(project_info: Dict):
     from pybraries.search import Search
     search = Search()
     pypi_info = search.project(
-        manager="pypi", package=quote(project_info.pypi_id, safe=""))
+        platforms="pypi", name=quote(project_info.pypi_id, safe=""))
 
     if not pypi_info:
         log.info("Unable to find pypi package: " + project_info.pypi_id)
@@ -343,7 +343,7 @@ def update_via_maven(project_info: Dict):
     from pybraries.search import Search
     search = Search()
     maven_info = search.project(
-        manager="maven", package=quote(project_info.maven_id, safe=""))
+        platforms="maven", name=quote(project_info.maven_id, safe=""))
 
     if not maven_info:
         log.info("Unable to find maven package: " + project_info.maven_id)
